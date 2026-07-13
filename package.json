@@ -1,7 +1,7 @@
 {
   "name": "prompt-box-electron",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "packageManager": "bun@1.3.4",
   "main": "main.js",
@@ -41,8 +41,12 @@
       "target": "dmg",
       "extendInfo": {
         "LSUIElement": true
-      }
+      },
+      "icon": "assets/icon.icns"
     },
-    "asar": true
-  }
+    "asar": true,
+    "icon": "assets/icon.icns"
+  },
+  "description": "PromptBox - 桌面提示词快速调用工具",
+  "author": "PromptBox"
 }

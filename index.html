@@ -42,13 +42,13 @@
       }
 
       aside {
-        width: 180px;
+        width: 156px;
         background: rgba(255, 255, 255, 0.86);
         border-right: 1px solid var(--border);
         display: flex;
         flex-direction: column;
-        padding: 18px 12px;
-        gap: 6px;
+        padding: 12px 10px;
+        gap: 4px;
         backdrop-filter: blur(18px);
       }
 
@@ -56,10 +56,10 @@
         font-size: 12px;
         font-weight: 700;
         color: var(--text);
-        margin: 2px 0 14px;
+        margin: 0 0 8px;
         text-align: center;
-        letter-spacing: 1.4px;
-        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        text-transform: none;
       }
 
       .nav-item {
@@ -1416,17 +1416,17 @@
       }
 
       .nav-item {
-        padding: 10px 12px;
+        padding: 7px 8px;
         font-size: 12px;
         font-weight: 600;
         color: var(--nb-text-muted);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: 8px;
         background: transparent !important;
         border: none !important;
-        border-radius: 10px;
+        border-radius: 8px;
         box-shadow: none !important;
         transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
       }
@@ -1502,8 +1502,8 @@
       }
 
       .search-input {
-        max-width: 520px;
-        height: 42px;
+        max-width: 100%;
+        height: 34px;
         background: rgba(255, 255, 255, 0.92) !important;
       }
 
@@ -1980,8 +1980,8 @@
       }
 
       .preview-title {
-        font-size: 22px;
-        line-height: 1.15;
+        font-size: 17px;
+        line-height: 1.25;
         font-weight: 700;
         color: var(--nb-ink);
       }
@@ -2404,7 +2404,7 @@
       }
 
       .content-wrap {
-        height: calc(100vh - 50px) !important;
+        height: calc(100vh - 44px) !important;
         min-height: 0 !important;
       }
 
@@ -2443,9 +2443,70 @@
       }
 
       .content-wrap {
-        grid-template-columns: minmax(500px, 1.25fr) minmax(320px, 0.82fr) !important;
-        gap: 18px !important;
-        padding: 20px 22px 22px !important;
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 0.42fr) !important;
+        gap: 14px !important;
+        padding: 12px 14px 14px !important;
+      }
+
+      body.preview-collapsed .content-wrap {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+
+      body.preview-collapsed .preview-panel {
+        display: none !important;
+      }
+
+      .preview-toggle-btn {
+        flex: 0 0 auto;
+        height: 32px;
+        min-width: 52px;
+        padding: 0 10px !important;
+        border-radius: 8px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        color: #5b6b82 !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: 1px solid #dce7f4 !important;
+        box-shadow: none !important;
+      }
+
+      .preview-toggle-btn:hover {
+        background: #f5f9ff !important;
+        color: #334155 !important;
+        transform: none !important;
+      }
+
+      .card-footer-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .card-rank {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        padding: 1px 5px;
+        border-radius: 6px;
+        background: #eef3f9;
+        color: #6b7c93;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .card.active-card .card-rank {
+        background: #dceaff;
+        color: #3d67b1;
+      }
+
+
+      .card:focus-visible {
+        outline: none;
+        box-shadow: inset 3px 0 0 #4f8cff, 0 0 0 2px rgba(79, 140, 255, 0.28) !important;
       }
 
       .list-scroll {
@@ -2550,75 +2611,47 @@
         display: flex;
         flex-direction: column;
         justify-content: center;
-        gap: 8px;
-        min-height: 190px;
-        padding: 22px;
-        border: 1px dashed var(--pb-accent-border);
-        border-radius: 16px;
-        background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+        gap: 6px;
+        min-height: 140px;
+        padding: 18px;
+        border: 1px solid #e6eef8;
+        border-radius: 12px;
+        background: #fafcfe;
         color: var(--pb-text);
       }
 
       .empty-state-title {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 700;
       }
 
       .empty-state-text {
-        max-width: 360px;
-        font-size: 13px;
-        line-height: 1.6;
+        max-width: 320px;
+        font-size: 12.5px;
+        line-height: 1.55;
         color: var(--pb-muted);
-      }
-
-      .empty-state-icon {
-        font-size: 32px;
-        margin-bottom: 4px;
       }
 
       .empty-state-actions {
-        margin-top: 8px;
+        margin-top: 6px;
       }
 
       .empty-state-btn {
-        padding: 10px 20px;
+        padding: 8px 14px;
         background: var(--pb-accent);
         color: white;
         border: none;
-        border-radius: 10px;
-        font-size: 13px;
+        border-radius: 8px;
+        font-size: 12.5px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: background 0.15s ease;
       }
 
       .empty-state-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 20px rgba(79, 140, 255, 0.35);
-      }
-
-      .empty-state-shortcuts {
-        margin-top: 16px;
-        padding-top: 16px;
-        border-top: 1px dashed var(--pb-accent-border);
-        font-size: 11px;
-        color: var(--pb-muted);
-      }
-
-      .empty-state-shortcuts kbd {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 20px;
-        padding: 2px 6px;
-        background: white;
-        border: 1px solid var(--pb-accent-border);
-        border-radius: 6px;
-        font-family: inherit;
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--pb-text);
-        box-shadow: 0 2px 0 var(--pb-accent-border);
+        transform: none;
+        background: #3f7cf0;
+        box-shadow: none;
       }
 
       @media (max-width: 1180px) {
@@ -2643,10 +2676,10 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        height: 50px;
-        min-height: 50px;
-        max-height: 50px;
-        padding: 0 20px;
+        height: 44px;
+        min-height: 44px;
+        max-height: 44px;
+        padding: 0 14px;
         box-sizing: border-box;
         overflow: visible;
         z-index: 50;
@@ -3010,20 +3043,23 @@
         <main>
           <header class="app-header">
             <div class="search-wrapper">
-              <input type="text" id="searchInput" class="search-input" placeholder="搜索提示词" />
+              <input type="text" id="searchInput" class="search-input" placeholder="搜索提示词" aria-label="搜索提示词" />
             </div>
+            <button type="button" class="preview-toggle-btn" id="previewToggleBtn" aria-pressed="false" title="收起预览 ( [ )">
+              <span class="preview-toggle-label">收起</span>
+            </button>
           </header>
 
           <div class="content-wrap">
           <section class="list-panel">
             <div class="list-scroll" id="cardGrid"></div>
           </section>
-          <section class="preview-panel" id="previewPanel">
+          <section class="preview-panel" id="previewPanel" aria-label="提示词预览">
             <div class="preview-header">
               <div class="preview-topbar">
                 <div class="preview-meta-line">
                   <span class="preview-tag" id="previewTag">未选择</span>
-                  <span class="preview-mode" id="previewMode">请选择要整理的提示词</span>
+                  <span class="preview-mode" id="previewMode" hidden>请选择要整理的提示词</span>
                 </div>
                 <div class="preview-actions-inline">
                   <button class="ghost-btn preview-action-manage" id="previewPin" aria-label="置顶" title="置顶">

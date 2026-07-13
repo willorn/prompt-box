@@ -208,6 +208,50 @@ document.addEventListener("DOMContentLoaded", () => {
   const previewPin = document.getElementById("previewPin");
   const previewEdit = document.getElementById("previewEdit");
   const previewDelete = document.getElementById("previewDelete");
+  const previewToggleBtn = document.getElementById("previewToggleBtn");
+
+  const PREVIEW_COLLAPSE_KEY = "promptbox.previewCollapsed";
+  let previewCollapsed = false;
+
+  function loadPreviewCollapsed() {
+    try {
+      return window.localStorage.getItem(PREVIEW_COLLAPSE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function persistPreviewCollapsed(value) {
+    try {
+      window.localStorage.setItem(PREVIEW_COLLAPSE_KEY, value ? "1" : "0");
+    } catch {}
+  }
+
+  function applyPreviewCollapsed() {
+    document.body.classList.toggle("preview-collapsed", previewCollapsed);
+    if (previewPanel) {
+      previewPanel.setAttribute("aria-hidden", previewCollapsed ? "true" : "false");
+      if ("inert" in previewPanel) {
+        previewPanel.inert = previewCollapsed;
+      }
+    }
+    if (previewToggleBtn) {
+      previewToggleBtn.setAttribute("aria-pressed", previewCollapsed ? "true" : "false");
+      previewToggleBtn.title = previewCollapsed ? "展开预览 ( [ )" : "收起预览 ( [ )";
+      previewToggleBtn.setAttribute(
+        "aria-label",
+        previewCollapsed ? "展开预览" : "收起预览",
+      );
+      const label = previewToggleBtn.querySelector(".preview-toggle-label");
+      if (label) label.textContent = previewCollapsed ? "展开" : "收起";
+    }
+  }
+
+  function togglePreviewCollapsed(force) {
+    previewCollapsed = typeof force === "boolean" ? force : !previewCollapsed;
+    persistPreviewCollapsed(previewCollapsed);
+    applyPreviewCollapsed();
+  }
 
   const addTagBtn = document.getElementById("addTagBtn");
   const tagInput = document.getElementById("newTag");
@@ -657,6 +701,8 @@ document.addEventListener("DOMContentLoaded", () => {
           case "delete":
             if (confirm(`确定要删除 "${data.name}" 吗？`)) {
               allPrompts.splice(index, 1);
+              if (selectedIndex === index) selectedIndex = null;
+              else if (selectedIndex !== null && selectedIndex > index) selectedIndex -= 1;
               await saveData();
               showToast("已删除");
             }
@@ -718,6 +764,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function clearPreview() {
     selectedIndex = null;
+    setActiveCardElement(null);
     if (previewTitle) previewTitle.textContent = "选择一条提示词";
     if (previewBody) {
       previewBody.textContent =
@@ -776,21 +823,20 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setActiveCardElement(nextCard) {
-    if (lastActiveCardEl && lastActiveCardEl !== nextCard) {
+    if (lastActiveCardEl && lastActiveCardEl !== nextCard && lastActiveCardEl.isConnected) {
       lastActiveCardEl.classList.remove("active-card");
+      lastActiveCardEl.setAttribute("aria-selected", "false");
     }
+    const scope = cardGrid || document;
+    scope.querySelectorAll(".card.active-card").forEach((el) => {
+      if (el !== nextCard) {
+        el.classList.remove("active-card");
+        el.setAttribute("aria-selected", "false");
+      }
+    });
     if (nextCard) {
       nextCard.classList.add("active-card");
-    }
-    // Fallback cleanup if DOM was re-rendered and lastActiveCardEl is stale
-    if (!nextCard || !nextCard.isConnected) {
-      document.querySelectorAll(".card.active-card").forEach((el) => {
-        if (el !== nextCard) el.classList.remove("active-card");
-      });
-    } else {
-      document.querySelectorAll(".card.active-card").forEach((el) => {
-        if (el !== nextCard) el.classList.remove("active-card");
-      });
+      nextCard.setAttribute("aria-selected", "true");
     }
     lastActiveCardEl = nextCard || null;
   }
@@ -807,10 +853,32 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function selectCard(originalIndex, fromHover = false, options = {}) {
+    if (!Number.isInteger(originalIndex) || originalIndex < 0 || !allPrompts[originalIndex]) {
+      if (selectedIndex !== null) {
+        selectedIndex = null;
+        setActiveCardElement(null);
+        if (previewTitle) previewTitle.textContent = "选择一条提示词";
+        if (previewBody) {
+          previewBody.textContent =
+            "单击卡片立即使用；右键或右侧按钮可置顶、编辑、删除。";
+        }
+        if (previewTag) previewTag.textContent = "未选择";
+        if (previewUsageStats) previewUsageStats.textContent = "暂无使用记录";
+        if (previewPin) {
+          setPreviewActionButtonLabel(previewPin, "置顶");
+          previewPin.disabled = true;
+        }
+        if (previewEdit) previewEdit.disabled = true;
+        if (previewDelete) previewDelete.disabled = true;
+      }
+      return;
+    }
     if (selectedIndex === originalIndex && fromHover) return;
     selectedIndex = originalIndex;
     const nextCard =
-      document.querySelector(`.card[data-original-index="${originalIndex}"]`) || null;
+      (cardGrid && cardGrid.querySelector(`.card[data-original-index="${originalIndex}"]`)) ||
+      document.querySelector(`.card[data-original-index="${originalIndex}"]`) ||
+      null;
     setActiveCardElement(nextCard);
     const item = allPrompts[originalIndex];
     const animate = options.animate !== false && !options.instant;
@@ -824,21 +892,43 @@ document.addEventListener("DOMContentLoaded", () => {
   function ensureCardVisible(card) {
     if (!card || !cardGrid) return;
     const scroller = cardGrid;
-    const cardTop = card.offsetTop;
-    const cardBottom = cardTop + card.offsetHeight;
-    const viewTop = scroller.scrollTop;
-    const viewBottom = viewTop + scroller.clientHeight;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
     const pad = 12;
+    const offsetTop = cardRect.top - scrollerRect.top;
+    const offsetBottom = cardRect.bottom - scrollerRect.top;
 
-    if (cardTop < viewTop + pad) {
-      scroller.scrollTop = Math.max(0, cardTop - pad);
-    } else if (cardBottom > viewBottom - pad) {
-      scroller.scrollTop = cardBottom - scroller.clientHeight + pad;
+    if (offsetTop < pad) {
+      scroller.scrollTop += offsetTop - pad;
+    } else if (offsetBottom > scroller.clientHeight - pad) {
+      scroller.scrollTop += offsetBottom - (scroller.clientHeight - pad);
     }
   }
 
   function getVisibleCards() {
-    return Array.from(document.querySelectorAll(".card"));
+    if (!cardGrid) return [];
+    return Array.from(cardGrid.querySelectorAll(".card"));
+  }
+
+  function getVisiblePromptIndices() {
+    return getVisibleCards()
+      .map((card) => Number(card.dataset.originalIndex))
+      .filter((index) => Number.isInteger(index) && index >= 0);
+  }
+
+  async function useVisiblePromptByRank(rank) {
+    // rank is 1-based among currently visible cards
+    const cards = getVisibleCards();
+    if (rank < 1 || rank > cards.length) return false;
+    const card = cards[rank - 1];
+    const index = Number(card.dataset.originalIndex);
+    if (!Number.isInteger(index)) return false;
+    markKeyboardNavigation();
+    card.focus({ preventScroll: true });
+    selectCard(index, false, { instant: true });
+    ensureCardVisible(card);
+    await usePromptAtIndex(index, card);
+    return true;
   }
 
   function focusAdjacentCard(step) {
@@ -895,16 +985,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     markPromptUsed(item);
+    selectedIndex = index;
     await saveData();
-
-    if (card) {
-      card.style.boxShadow = "0 0 0 3px rgba(79, 140, 255, 0.14), 0 16px 34px rgba(15, 23, 42, 0.1)";
-      setTimeout(() => (card.style.boxShadow = item.isPinned ? "0 14px 30px rgba(15, 23, 42, 0.08)" : ""), 500);
-      card.style.backgroundColor = "#edf4ff";
-      setTimeout(() => {
-        card.style.backgroundColor = item.isPinned ? "#f6faff" : "";
-      }, 200);
-    }
 
     if (result.pasted) {
       showToast("已粘贴到当前输入位置");
@@ -920,7 +1002,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!result.pasted) {
       closeCurrentWindowSilently();
     }
-    selectCard(index);
+    // saveData re-rendered list; reselect by stable array index.
+    if (allPrompts[index]) {
+      selectCard(index, false, { instant: true });
+    }
     return result;
   }
 
@@ -972,10 +1057,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".nav-item").forEach((item) => {
       item.onclick = (e) => {
         e.preventDefault();
-        document
-          .querySelectorAll(".nav-item")
-          .forEach((nav) => nav.classList.remove("active"));
+        document.querySelectorAll(".nav-item").forEach((nav) => {
+          nav.classList.remove("active");
+          nav.setAttribute("aria-pressed", "false");
+        });
         item.classList.add("active");
+        item.setAttribute("aria-pressed", "true");
         renderCards();
       };
       item.oncontextmenu = (e) => {
@@ -993,6 +1080,9 @@ document.addEventListener("DOMContentLoaded", () => {
     a.href = "#";
     a.className = `nav-item ${isActive ? "active" : ""}`;
     a.dataset.filter = filter;
+    a.setAttribute("role", "button");
+    a.setAttribute("aria-pressed", isActive ? "true" : "false");
+    a.setAttribute("aria-label", `${text}，${count} 条`);
     const label = document.createElement("span");
     label.className = "nav-item-label";
     label.textContent = text;
@@ -1084,6 +1174,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         card.tabIndex = 0;
         card.dataset.originalIndex = item.originalIndex;
+        card.setAttribute("role", "option");
+        card.setAttribute("aria-selected", selectedIndex === item.originalIndex ? "true" : "false");
+        card.setAttribute("aria-label", `${item.name || "未命名"}，${normalizedTag || "默认"}`);
         card.addEventListener("mouseenter", () => {
           if (isKeyboardNavigating()) return;
           selectCard(item.originalIndex, true, { animate: false });
@@ -1121,7 +1214,10 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           <div class="card-footer">
             <span class="card-usage">${escapeHtml(useText)}</span>
-            <span class="card-last-used">${escapeHtml(lastUsedText)}</span>
+            <span class="card-footer-right">
+              <span class="card-rank" hidden></span>
+              <span class="card-last-used">${escapeHtml(lastUsedText)}</span>
+            </span>
           </div>
         `;
 
@@ -1176,47 +1272,77 @@ document.addEventListener("DOMContentLoaded", () => {
         const right = allPrompts[Number(b.dataset.originalIndex)];
         return comparePromptsForUse(left, right);
       });
+
       regularItems.forEach((card) => regularList.appendChild(card));
+    }
+
+    // Annotate visible cards with shortcut ranks for the first nine.
+    const isApple = /Mac|iPhone|iPad|iPod/.test(navigator.platform || "");
+    const modLabel = isApple ? "⌘" : "Ctrl+";
+    getVisibleCards().forEach((card, idx) => {
+      const rankEl = card.querySelector(".card-rank");
+      if (idx < 9) {
+        card.dataset.rank = String(idx + 1);
+        card.setAttribute(
+          "aria-keyshortcuts",
+          `Meta+${idx + 1} Control+${idx + 1}`,
+        );
+        if (rankEl) {
+          rankEl.hidden = false;
+          rankEl.textContent = `${modLabel}${idx + 1}`;
+        }
+      } else {
+        delete card.dataset.rank;
+        card.removeAttribute("aria-keyshortcuts");
+        if (rankEl) {
+          rankEl.hidden = true;
+          rankEl.textContent = "";
+        }
+      }
+    });
+    if (cardGrid) {
+      cardGrid.setAttribute("role", "listbox");
+      cardGrid.setAttribute("aria-label", "提示词列表");
     }
 
     if (visibleCount === 0) {
       const isEmpty = allPrompts.length === 0;
       cardGrid.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">${isEmpty ? "✨" : "🔍"}</div>
+        <div class="empty-state" role="status" aria-live="polite">
           <div class="empty-state-title">${escapeHtml(
-            isEmpty ? "欢迎使用 PromptBox" : "没有匹配结果",
+            isEmpty ? "还没有提示词" : "没有匹配结果",
           )}</div>
           <div class="empty-state-text">${escapeHtml(
             isEmpty
-              ? "点左侧「新增」添加第一条提示词，即可开始使用。"
-              : "试试更短的关键词、切换分类，或在设置里检查是否有分类被隐藏。",
+              ? "点左侧「新增」添加第一条。"
+              : "换个关键词，或切换左侧分类。",
           )}</div>
           ${isEmpty ? `
           <div class="empty-state-actions">
-            <button class="empty-state-btn primary" onclick="document.getElementById('addBtn').click()">
+            <button class="empty-state-btn primary" type="button" id="emptyAddBtn">
               新增提示词
             </button>
-          </div>
-          <div class="empty-state-shortcuts">
-            <span>快捷键：</span>
-            <kbd>↑</kbd><kbd>↓</kbd> 选择 · 
-            <kbd>↵</kbd> 使用 · 
-            <kbd>⌘</kbd> + <kbd>,</kbd> 设置
           </div>
           ` : ""}
         </div>
       `;
+      const emptyAddBtn = document.getElementById("emptyAddBtn");
+      if (emptyAddBtn) {
+        emptyAddBtn.onclick = () => document.getElementById("addBtn")?.click();
+      }
       clearPreview();
       return;
     }
 
     if (visibleIndices.length === 0) {
       clearPreview();
+      setActiveCardElement(null);
     } else if (!visibleIndices.includes(selectedIndex)) {
-      selectCard(visibleIndices[0]);
+      selectCard(visibleIndices[0], false, { instant: true });
+    } else {
+      // Re-bind active class after full re-render.
+      selectCard(selectedIndex, false, { instant: true });
     }
-
   }
 
   function clearSearchInput({ focus = false } = {}) {
@@ -1235,14 +1361,27 @@ document.addEventListener("DOMContentLoaded", () => {
     renderCards();
   });
 
-  searchInput.addEventListener("keydown", (e) => {
+  searchInput.addEventListener("keydown", async (e) => {
     if (e.key === "Escape" && searchInput.value) {
       e.preventDefault();
       e.stopPropagation();
       clearSearchInput({ focus: true });
       return;
     }
-    if (e.key === "Enter" || e.key === "Tab") {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const used = await useVisiblePromptByRank(1);
+      if (!used) {
+        const firstCard = document.querySelector(".card");
+        if (firstCard) {
+          firstCard.focus({ preventScroll: true });
+          selectCard(Number(firstCard.dataset.originalIndex), false, { instant: true });
+          ensureCardVisible(firstCard);
+        }
+      }
+      return;
+    }
+    if (e.key === "Tab") {
       const firstCard = document.querySelector(".card");
       if (firstCard) {
         firstCard.focus({ preventScroll: true });
@@ -1464,7 +1603,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const item = allPrompts[selectedIndex];
       if (!item) return;
       if (!confirm(`确定删除 "${item.name}" 吗？`)) return;
-      allPrompts.splice(selectedIndex, 1);
+      const removedIndex = selectedIndex;
+      allPrompts.splice(removedIndex, 1);
+      selectedIndex = null;
       await saveData();
       showToast("已删除");
     };
@@ -1780,6 +1921,35 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // ⌘/Ctrl + 1-9：快速使用当前可见列表中的第 N 条
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
+      if (!isBlockingLayerOpen() && (!isTypingTarget(e.target) || e.target === searchInput)) {
+        e.preventDefault();
+        void useVisiblePromptByRank(Number(e.key));
+        return;
+      }
+    }
+
+    // Enter：非输入态时使用当前选中项
+    if (
+      e.key === "Enter" &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      !isBlockingLayerOpen() &&
+      !isTypingTarget(e.target) &&
+      e.target !== searchInput
+    ) {
+      if (selectedIndex !== null && allPrompts[selectedIndex]) {
+        e.preventDefault();
+        const card = document.querySelector(
+          `.card[data-original-index="${selectedIndex}"]`,
+        );
+        void usePromptAtIndex(selectedIndex, card);
+        return;
+      }
+    }
+
     if (
       (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
       !e.metaKey &&
@@ -1798,6 +1968,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // [ : 折叠/展开预览
+    if (e.key === "[" && !isTypingTarget(e.target) && !isBlockingLayerOpen()) {
+      e.preventDefault();
+      togglePreviewCollapsed();
+      return;
+    }
+
     if (e.key === "/" && !isTypingTarget(e.target)) {
       e.preventDefault();
       searchInput.focus();
@@ -1807,9 +1984,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (searchInput) {
     searchInput.placeholder = "搜索提示词";
+    searchInput.setAttribute("aria-label", "搜索提示词");
   }
   if (settingsBtn) {
-    settingsBtn.title = "设置";
+    settingsBtn.title = "设置 (⌘,)";
+  }
+  previewCollapsed = loadPreviewCollapsed();
+  applyPreviewCollapsed();
+  if (previewToggleBtn) {
+    previewToggleBtn.onclick = () => togglePreviewCollapsed();
   }
 
   window.addEventListener("load", () => {

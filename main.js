@@ -40,10 +40,62 @@ function getExtraResourcePath(...paths) {
 const store = new Store({
   name: "window-state",
   defaults: {
-    bounds: { width: 1200, height: 800 },
+    bounds: { width: 1080, height: 720, x: undefined, y: undefined },
     isMaximized: false,
   },
 });
+
+const DEFAULT_WINDOW_BOUNDS = { width: 1080, height: 720 };
+const MIN_WINDOW_WIDTH = 860;
+const MIN_WINDOW_HEIGHT = 560;
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getVisibleDisplayForBounds(bounds) {
+  try {
+    const center = {
+      x: Math.round((bounds.x || 0) + (bounds.width || DEFAULT_WINDOW_BOUNDS.width) / 2),
+      y: Math.round((bounds.y || 0) + (bounds.height || DEFAULT_WINDOW_BOUNDS.height) / 2),
+    };
+    return screen.getDisplayNearestPoint(center) || screen.getPrimaryDisplay();
+  } catch {
+    return screen.getPrimaryDisplay();
+  }
+}
+
+function sanitizeWindowBounds(rawBounds) {
+  const base = {
+    width: Number(rawBounds?.width) || DEFAULT_WINDOW_BOUNDS.width,
+    height: Number(rawBounds?.height) || DEFAULT_WINDOW_BOUNDS.height,
+    x: Number.isFinite(rawBounds?.x) ? Number(rawBounds.x) : undefined,
+    y: Number.isFinite(rawBounds?.y) ? Number(rawBounds.y) : undefined,
+  };
+
+  const display = getVisibleDisplayForBounds(base);
+  const work = display.workArea;
+  const width = clamp(base.width, MIN_WINDOW_WIDTH, work.width);
+  const height = clamp(base.height, MIN_WINDOW_HEIGHT, work.height);
+
+  let x = base.x;
+  let y = base.y;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    x = Math.round(work.x + (work.width - width) / 2);
+    y = Math.round(work.y + (work.height - height) / 2);
+  } else {
+    x = clamp(x, work.x, work.x + work.width - width);
+    y = clamp(y, work.y, work.y + work.height - height);
+  }
+
+  return { x, y, width, height };
+}
+
+function getSavedWindowState() {
+  const bounds = sanitizeWindowBounds(store.get("bounds"));
+  const isMaximized = store.get("isMaximized") === true;
+  return { bounds, isMaximized };
+}
 const dataStore = new Store({
   name: "prompt-box-data",
 });
@@ -94,19 +146,35 @@ function keepDockHidden() {
   }
 }
 
+function getAppIconPath() {
+  const candidates = [
+    getExtraResourcePath("assets", "icon.icns"),
+    getExtraResourcePath("assets", "icon.png"),
+    getAssetPath("assets", "icon.icns"),
+    getAssetPath("assets", "icon.png"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {}
+  }
+  return null;
+}
+
 function createMainWindow() {
-  const saved = store.get("bounds");
-  const isMaximized = store.get("isMaximized");
+  const { bounds, isMaximized } = getSavedWindowState();
+  const iconPath = getAppIconPath();
 
   mainWindow = new BrowserWindow({
-    width: saved?.width || 1200,
-    height: saved?.height || 800,
-    x: saved?.x,
-    y: saved?.y,
-    minWidth: 980,
-    minHeight: 650,
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     show: true,
     skipTaskbar: process.platform === "darwin",
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: getAssetPath("preload.cjs"),
       contextIsolation: true,
@@ -126,26 +194,44 @@ function createMainWindow() {
     hideMainWindow();
   });
 
-  mainWindow.on("resize", saveWindowState);
-  mainWindow.on("move", saveWindowState);
+  let saveTimer = null;
+  const scheduleSaveWindowState = () => {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      saveWindowState();
+    }, 120);
+  };
+  mainWindow.on("resize", scheduleSaveWindowState);
+  mainWindow.on("move", scheduleSaveWindowState);
   mainWindow.on("maximize", saveWindowState);
   mainWindow.on("unmaximize", saveWindowState);
 }
 
 function saveWindowState() {
-  if (!mainWindow || isHiddenOffscreen) return;
-  const bounds = mainWindow.getBounds();
-  store.set("bounds", bounds);
-  store.set("isMaximized", mainWindow.isMaximized());
+  if (!mainWindow || isHiddenOffscreen || mainWindow.isDestroyed()) return;
+  // Only persist on-screen geometry so hide-offscreen never overwrites real bounds.
+  const maximized = mainWindow.isMaximized();
+  store.set("isMaximized", maximized);
+  try {
+    // Prefer normal bounds so restore after maximize is correct.
+    const raw = maximized && typeof mainWindow.getNormalBounds === "function"
+      ? mainWindow.getNormalBounds()
+      : mainWindow.getBounds();
+    store.set("bounds", sanitizeWindowBounds(raw));
+  } catch {
+    if (!maximized) {
+      store.set("bounds", sanitizeWindowBounds(mainWindow.getBounds()));
+    }
+  }
 }
 
 function showMainWindow() {
   if (!mainWindow) return;
-  const saved = store.get("bounds");
-  const isMaximized = store.get("isMaximized");
+  const { bounds, isMaximized } = getSavedWindowState();
 
-  if (saved && !isMaximized) {
-    mainWindow.setBounds(saved);
+  if (!isMaximized) {
+    mainWindow.setBounds(bounds, false);
   }
 
   keepDockHidden();

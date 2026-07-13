@@ -21,7 +21,7 @@
 
 ### 下载安装
 
-前往 [Releases](https://github.com/willorn/mac-prompt/releases) 页面下载最新版本：
+前往 [Releases](https://github.com/willorn/prompt-box/releases) 页面下载最新版本：
 
 - **macOS**: `PromptBox-x.x.x.dmg`
 - **Windows**: `PromptBox-x.x.x.exe` (计划中)
@@ -31,7 +31,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/willorn/mac-prompt.git
+git clone https://github.com/willorn/prompt-box.git
 cd mac-prompt
 
 # 安装依赖
@@ -72,7 +72,7 @@ bun run build
 3. 点击保存
 
 **管理提示词**
-在任意卡片上右键，选择：
+在任意卡片上右键，或使用右侧预览按钮：
 - **置顶** - 将常用提示词置顶显示
 - **编辑** - 修改提示词内容
 - **删除** - 删除该提示词
@@ -118,9 +118,11 @@ bun run build
 |--------|------|
 | `Alt+E` | 显示/隐藏主窗口 |
 | `Tab` | 从搜索框切换到结果列表 |
-| `Esc` | 在搜索框内清空当前搜索 |
-| `←/→` | 在卡片间切换焦点 |
-| `Enter` | 当前版本下仍建议优先使用鼠标点击卡片内容 |
+| `Esc` | 清空搜索 / 关闭层 / 隐藏窗口 |
+| `↑/↓` | 在卡片间切换选中 |
+| `Enter` | 搜索框：使用第一条；列表：使用当前选中 |
+| `⌘/Ctrl + 1-9` | 快速使用当前可见列表第 N 条 |
+| `[` | 收起 / 展开预览区 |
 
 ## 🛠️ 技术栈
 

@@ -4,7 +4,7 @@
 
 ## 当前发布约定
 
-- 仓库：`https://github.com/willorn/mac-prompt`
+- 仓库：`https://github.com/willorn/prompt-box`
 - 默认分支：`main`
 - 版本号来源：[package.json](../package.json)
 - Tag 命名：`electron-v<version>`

@@ -210,7 +210,7 @@
       }
 
       .preview-panel.preview-change {
-        animation: previewPulse 0.25s ease;
+        animation: previewPulse 0.16s ease;
       }
 
       .preview-header {
@@ -1649,8 +1649,8 @@
       }
 
       .content-wrap {
-        padding: 24px 26px 26px;
-        gap: 20px;
+        padding: 20px 22px 22px;
+        gap: 16px;
       }
 
       .list-panel,
@@ -1659,40 +1659,42 @@
       }
 
       .list-header {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        min-height: 24px;
         color: var(--nb-text-muted);
         font-size: 12px;
         font-weight: 600;
-        letter-spacing: 0.4px;
+        letter-spacing: 0;
       }
 
-      .list-header > span {
+      .list-header-meta {
         display: inline-flex;
         align-items: center;
-        padding: 5px 10px;
-        background: rgba(255, 255, 255, 0.82);
-        color: var(--nb-text-muted);
-        border: 1px solid #ebe7df;
-        border-radius: 999px;
-        box-shadow: none !important;
+        gap: 8px;
       }
 
       #resultCount {
-        min-width: 34px;
+        min-width: 28px;
         text-align: center;
-        padding: 5px 9px;
-        background: #e9f2ff !important;
-        color: #3d67b1 !important;
-        border: 1px solid #d3e2fb !important;
+        padding: 3px 8px;
+        background: #f3f7fc !important;
+        color: #6b7c93 !important;
+        border: 1px solid #e3ebf5 !important;
         border-radius: 999px !important;
         box-shadow: none !important;
+        font-size: 11px;
+        font-weight: 600;
       }
 
       .list-scroll {
         background: var(--nb-surface) !important;
-        padding: 10px;
-        gap: 10px;
+        padding: 12px;
+        gap: 14px;
         backdrop-filter: none;
         overflow-x: hidden;
+        scroll-behavior: auto;
       }
 
       .card-section {
@@ -1701,9 +1703,9 @@
       }
 
       .card-section + .card-section {
-        margin-top: 8px;
-        padding-top: 14px;
-        border-top: 1px solid #e4edf8;
+        margin-top: 4px;
+        padding-top: 12px;
+        border-top: 1px solid #e8eef6;
       }
 
       .card-section-header {
@@ -1711,26 +1713,24 @@
         align-items: baseline;
         justify-content: space-between;
         gap: 12px;
-        padding: 2px 4px 0;
+        padding: 0 2px;
       }
 
       .card-section-title {
         font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.4px;
-        color: #3d67b1;
-        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        color: #7a8aa0;
+        text-transform: none;
       }
 
       .card-section-note {
-        font-size: 11px;
-        color: #9ca3af;
-        text-align: right;
+        display: none;
       }
 
       .card-section-list {
         display: grid;
-        gap: 10px;
+        gap: 8px;
       }
 
       .card,
@@ -1738,32 +1738,32 @@
       .card:nth-child(4n + 2),
       .card:nth-child(4n + 3),
       .card:nth-child(4n + 4) {
-        padding: 12px 14px;
-        background: var(--nb-surface) !important;
-        border: 1px solid #dce7f4 !important;
-        border-radius: 14px !important;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06) !important;
-        transition: box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
+        padding: 11px 13px;
+        background: #ffffff !important;
+        border: 1px solid #e2ebf5 !important;
+        border-radius: 12px !important;
+        box-shadow: none !important;
+        transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
         width: 100%;
         min-width: 0;
+        will-change: auto;
       }
 
       .card:hover {
-        background: #ffffff !important;
-        transform: translateY(-1px);
-        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.09) !important;
+        background: #f8fbff !important;
+        transform: none;
+        box-shadow: none !important;
+        border-color: #cddff5 !important;
       }
 
       .card.active-card,
       .card:focus,
       .card:focus-visible {
-        background: #edf4ff !important;
+        background: #eef5ff !important;
         border-color: #7aa8f5 !important;
-        box-shadow:
-          0 0 0 2px rgba(79, 140, 255, 0.42),
-          0 0 0 5px rgba(79, 140, 255, 0.14),
-          0 16px 34px rgba(15, 23, 42, 0.1) !important;
+        box-shadow: inset 3px 0 0 #4f8cff !important;
         outline: none;
+        transform: none;
       }
 
       .card.active-card {
@@ -1771,40 +1771,25 @@
       }
 
       .card.active-card::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 10px;
-        bottom: 10px;
-        width: 3px;
-        border-radius: 999px;
-        background: #4f8cff;
-        box-shadow: 0 0 0 1px rgba(79, 140, 255, 0.18);
+        display: none;
       }
 
       .pinned-card {
-        border-color: #d4e2f6 !important;
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08) !important;
-        background: #f6faff !important;
+        border-color: #d7e5f7 !important;
+        box-shadow: none !important;
+        background: #f7faff !important;
       }
 
       .pinned-card.active-card,
       .pinned-card:focus,
       .pinned-card:focus-visible {
-        background: #e5f0ff !important;
+        background: #eaf2ff !important;
         border-color: #6f9ff0 !important;
-        box-shadow:
-          0 0 0 2px rgba(79, 140, 255, 0.48),
-          0 0 0 5px rgba(79, 140, 255, 0.16),
-          0 16px 34px rgba(15, 23, 42, 0.1) !important;
+        box-shadow: inset 3px 0 0 #4f8cff !important;
       }
 
       .card-header {
-        display: grid !important;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: start !important;
-        column-gap: 12px;
-        row-gap: 6px;
+        display: block !important;
         min-width: 0;
       }
 
@@ -1812,17 +1797,65 @@
         min-width: 0;
       }
 
+      .card-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-width: 0;
+      }
+
       .card-title {
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 700;
         letter-spacing: 0;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .card-body {
         color: var(--nb-text-muted);
-        font-size: 13px;
+        font-size: 12.5px;
         line-height: 1.45;
-        margin-top: 4px;
+        margin-top: 5px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .card-tag {
+        flex-shrink: 0;
+        font-size: 10.5px !important;
+        min-height: 20px;
+        padding: 1px 7px !important;
+      }
+
+      .card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 7px;
+        padding-top: 6px;
+        border-top: 1px solid #eef3f9;
+        font-size: 11px;
+        color: #93a0b0;
+        min-width: 0;
+      }
+
+      .card-usage,
+      .card-last-used {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .card-last-used {
+        text-align: right;
       }
 
       .card-tag,
@@ -2076,7 +2109,7 @@
       }
 
       .card:active {
-        transform: scale(0.995);
+        transform: none;
       }
 
       .card-actions {
@@ -2416,16 +2449,16 @@
       }
 
       .list-scroll {
-        padding: 8px !important;
-        gap: 8px !important;
+        padding: 12px !important;
+        gap: 14px !important;
       }
 
       .card-section {
-        gap: 6px !important;
+        gap: 8px !important;
       }
 
       .card-section + .card-section {
-        margin-top: 6px !important;
+        margin-top: 4px !important;
         padding-top: 12px !important;
       }
 
@@ -2438,7 +2471,7 @@
       .card:nth-child(4n + 2),
       .card:nth-child(4n + 3),
       .card:nth-child(4n + 4) {
-        padding: 11px 12px !important;
+        padding: 11px 13px !important;
       }
 
       .card {
@@ -2451,36 +2484,16 @@
 
       .card-body {
         font-size: 12.5px !important;
-        line-height: 1.42 !important;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+        line-height: 1.45 !important;
+        -webkit-line-clamp: 2;
       }
 
       .card-footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px solid #edf2f8;
+        margin-top: 7px;
+        padding-top: 6px;
+        border-top: 1px solid #eef3f9;
         font-size: 11px;
-        color: var(--pb-muted);
-        min-width: 0;
-      }
-
-      .card-usage,
-      .card-last-used {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .card-last-used {
-        text-align: right;
+        color: #93a0b0;
       }
 
       .card-actions {
@@ -2997,18 +3010,12 @@
         <main>
           <header class="app-header">
             <div class="search-wrapper">
-              <input type="text" id="searchInput" class="search-input" placeholder="搜索" />
+              <input type="text" id="searchInput" class="search-input" placeholder="搜索提示词" />
             </div>
           </header>
 
           <div class="content-wrap">
           <section class="list-panel">
-            <div class="list-header" id="listHeader">
-              <span id="listHeaderTitle">快速调用</span>
-              <div class="list-header-meta">
-                <span id="resultCount">0</span>
-              </div>
-            </div>
             <div class="list-scroll" id="cardGrid"></div>
           </section>
           <section class="preview-panel" id="previewPanel">
@@ -3033,9 +3040,9 @@
                   </button>
                 </div>
               </div>
-              <div class="preview-title" id="previewTitle">准备调用提示词</div>
+              <div class="preview-title" id="previewTitle">选择一条提示词</div>
             </div>
-            <div class="preview-body" id="previewBody">先移动鼠标或键盘选中一条提示词，再单击卡片立即发送到当前输入框。右键可编辑、置顶或删除。</div>
+            <div class="preview-body" id="previewBody">单击卡片立即使用；右键或右侧按钮可置顶、编辑、删除。</div>
             <div class="preview-usage-stats" id="previewUsageStats">暂无使用记录</div>
           </section>
         </div>

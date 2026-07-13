@@ -198,7 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const modal = document.getElementById("modalOverlay");
   const modalTitle = modal.querySelector("h2");
   const settingsBtn = document.getElementById("settingsBtn");
-  const listHeaderTitle = document.getElementById("listHeaderTitle");
 
   const previewPanel = document.getElementById("previewPanel");
   const previewTitle = document.getElementById("previewTitle");
@@ -209,7 +208,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const previewPin = document.getElementById("previewPin");
   const previewEdit = document.getElementById("previewEdit");
   const previewDelete = document.getElementById("previewDelete");
-  const resultCount = document.getElementById("resultCount");
 
   const addTagBtn = document.getElementById("addTagBtn");
   const tagInput = document.getElementById("newTag");
@@ -691,8 +689,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (modal) modal.style.display = "flex";
   }
 
-  function applyPreviewTheme(item) {
+  function applyPreviewTheme(item, options = {}) {
     if (!previewPanel) return;
+    const animate = options.animate !== false;
     const base = item
       ? `${item.name || ""}|${normalizeTag(item.tag) || ""}`
       : "default";
@@ -702,17 +701,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const hue = (hash + 220) % 360;
     previewPanel.style.setProperty("--preview-hue", hue);
+    if (!animate) {
+      previewPanel.classList.remove("preview-change");
+      return;
+    }
     previewPanel.classList.remove("preview-change");
-    void previewPanel.offsetWidth;
-    previewPanel.classList.add("preview-change");
+    // Avoid forced reflow; use double-rAF only when animation is requested.
+    requestAnimationFrame(() => {
+      if (!previewPanel) return;
+      previewPanel.classList.remove("preview-change");
+      requestAnimationFrame(() => {
+        if (previewPanel) previewPanel.classList.add("preview-change");
+      });
+    });
   }
 
   function clearPreview() {
     selectedIndex = null;
-    if (previewTitle) previewTitle.textContent = "准备调用提示词";
+    if (previewTitle) previewTitle.textContent = "选择一条提示词";
     if (previewBody) {
       previewBody.textContent =
-        "先移动鼠标或键盘选中一条提示词，再单击卡片立即发送到当前输入框。右键可编辑、置顶或删除。";
+        "单击卡片立即使用；右键或右侧按钮可置顶、编辑、删除。";
     }
     if (previewTag) previewTag.textContent = "未选择";
     if (previewMode) {
@@ -731,8 +740,9 @@ document.addEventListener("DOMContentLoaded", () => {
     applyPreviewTheme(null);
   }
 
-  function updatePreview(item) {
+  function updatePreview(item, options = {}) {
     if (!item) return;
+    const animate = options.animate !== false;
     const { useText, lastUsedText } = getUsageSummary(item);
     if (previewTitle) previewTitle.textContent = item.name || "未命名";
     if (previewBody) previewBody.textContent = item.content || "";
@@ -750,17 +760,81 @@ document.addEventListener("DOMContentLoaded", () => {
     if (previewEdit) previewEdit.disabled = false;
     if (previewDelete) previewDelete.disabled = false;
     if (previewPanel) previewPanel.style.opacity = "1";
-    applyPreviewTheme(item);
+    applyPreviewTheme(item, { animate });
   }
 
-  function selectCard(originalIndex, fromHover = false) {
+  let previewUpdateFrame = 0;
+  let lastActiveCardEl = null;
+  let keyboardNavUntil = 0;
+
+  function markKeyboardNavigation() {
+    keyboardNavUntil = performance.now() + 280;
+  }
+
+  function isKeyboardNavigating() {
+    return performance.now() < keyboardNavUntil;
+  }
+
+  function setActiveCardElement(nextCard) {
+    if (lastActiveCardEl && lastActiveCardEl !== nextCard) {
+      lastActiveCardEl.classList.remove("active-card");
+    }
+    if (nextCard) {
+      nextCard.classList.add("active-card");
+    }
+    // Fallback cleanup if DOM was re-rendered and lastActiveCardEl is stale
+    if (!nextCard || !nextCard.isConnected) {
+      document.querySelectorAll(".card.active-card").forEach((el) => {
+        if (el !== nextCard) el.classList.remove("active-card");
+      });
+    } else {
+      document.querySelectorAll(".card.active-card").forEach((el) => {
+        if (el !== nextCard) el.classList.remove("active-card");
+      });
+    }
+    lastActiveCardEl = nextCard || null;
+  }
+
+  function schedulePreviewUpdate(item, { animate = true } = {}) {
+    if (previewUpdateFrame) {
+      cancelAnimationFrame(previewUpdateFrame);
+      previewUpdateFrame = 0;
+    }
+    previewUpdateFrame = requestAnimationFrame(() => {
+      previewUpdateFrame = 0;
+      updatePreview(item, { animate });
+    });
+  }
+
+  function selectCard(originalIndex, fromHover = false, options = {}) {
     if (selectedIndex === originalIndex && fromHover) return;
     selectedIndex = originalIndex;
-    document.querySelectorAll(".card").forEach((el) => {
-      el.classList.toggle("active-card", Number(el.dataset.originalIndex) === originalIndex);
-    });
+    const nextCard =
+      document.querySelector(`.card[data-original-index="${originalIndex}"]`) || null;
+    setActiveCardElement(nextCard);
     const item = allPrompts[originalIndex];
-    updatePreview(item);
+    const animate = options.animate !== false && !options.instant;
+    if (options.instant) {
+      updatePreview(item, { animate: false });
+    } else {
+      schedulePreviewUpdate(item, { animate });
+    }
+  }
+
+  function ensureCardVisible(card) {
+    if (!card || !cardGrid) return;
+    const scroller = cardGrid;
+    const cardTop = card.offsetTop;
+    const cardBottom = cardTop + card.offsetHeight;
+    const viewTop = scroller.scrollTop;
+    const viewBottom = viewTop + scroller.clientHeight;
+    const pad = 12;
+
+    if (cardTop < viewTop + pad) {
+      scroller.scrollTop = Math.max(0, cardTop - pad);
+    } else if (cardBottom > viewBottom - pad) {
+      scroller.scrollTop = cardBottom - scroller.clientHeight + pad;
+    }
   }
 
   function getVisibleCards() {
@@ -790,9 +864,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const nextCard = cards[nextIndex];
     if (!nextCard) return false;
 
+    markKeyboardNavigation();
     nextCard.focus({ preventScroll: true });
-    selectCard(Number(nextCard.dataset.originalIndex));
-    nextCard.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    selectCard(Number(nextCard.dataset.originalIndex), false, { instant: true });
+    ensureCardVisible(nextCard);
     return true;
   }
 
@@ -961,7 +1036,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const recentItems = [];
     const regularItems = [];
 
-    const createSection = (title, note) => {
+    const createSection = (title, note = "") => {
       const section = document.createElement("section");
       section.className = "card-section";
       const header = document.createElement("div");
@@ -969,11 +1044,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const titleEl = document.createElement("div");
       titleEl.className = "card-section-title";
       titleEl.textContent = title;
-      const noteEl = document.createElement("div");
-      noteEl.className = "card-section-note";
-      noteEl.textContent = note;
       header.appendChild(titleEl);
-      header.appendChild(noteEl);
+      if (note) {
+        const noteEl = document.createElement("div");
+        noteEl.className = "card-section-note";
+        noteEl.textContent = note;
+        header.appendChild(noteEl);
+      }
       const list = document.createElement("div");
       list.className = "card-section-list";
       section.appendChild(header);
@@ -997,7 +1074,6 @@ document.addEventListener("DOMContentLoaded", () => {
         visibleCount += 1;
         const card = document.createElement("div");
         card.className = "card";
-        const interactionHint = "单击即用";
         const { useText, lastUsedText } = getUsageSummary(item);
         if (item.isPinned) {
           card.classList.add("pinned-card");
@@ -1008,8 +1084,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         card.tabIndex = 0;
         card.dataset.originalIndex = item.originalIndex;
-        card.addEventListener("mouseenter", () => selectCard(item.originalIndex, true));
-        card.addEventListener("focus", () => selectCard(item.originalIndex, true));
+        card.addEventListener("mouseenter", () => {
+          if (isKeyboardNavigating()) return;
+          selectCard(item.originalIndex, true, { animate: false });
+        });
+        card.addEventListener("focus", () => {
+          selectCard(item.originalIndex, true, { animate: false });
+        });
         card.addEventListener("click", async () => {
           selectCard(item.originalIndex);
           card.focus({ preventScroll: true });
@@ -1031,14 +1112,11 @@ document.addEventListener("DOMContentLoaded", () => {
         card.innerHTML = `
           <div class="card-header">
             <div class="card-content">
-              <div class="card-title">${escapeHtml(item.name)}</div>
-              <div class="card-body">${escapeHtml(item.content)}</div>
-            </div>
-            <div class="card-actions">
-              <span class="card-meta">
+              <div class="card-title-row">
+                <div class="card-title">${escapeHtml(item.name)}</div>
                 <span class="card-tag">${escapeHtml(normalizedTag || "默认")}</span>
-                <span class="card-hint">${interactionHint}</span>
-              </span>
+              </div>
+              <div class="card-body">${escapeHtml(item.content)}</div>
             </div>
           </div>
           <div class="card-footer">
@@ -1082,27 +1160,23 @@ document.addEventListener("DOMContentLoaded", () => {
     regularItems.unshift(...remainingRecentCards);
 
     if (pinnedItems.length > 0) {
-      const pinnedList = createSection("置顶快捷使用", "单击整张卡片直接执行 · 右键管理");
+      const pinnedList = createSection("置顶");
       pinnedItems.forEach((card) => pinnedList.appendChild(card));
     }
 
     if (surfacedRecentItems.length > 0) {
-      const recentList = createSection("最近使用", "根据最近调用自动前置，帮助形成肌肉记忆");
+      const recentList = createSection("最近");
       surfacedRecentItems.forEach(({ card }) => recentList.appendChild(card));
     }
 
     if (regularItems.length > 0) {
-      const regularList = createSection("全部结果", "单击/回车使用 · 右键或右侧按钮管理");
+      const regularList = createSection("全部");
       regularItems.sort((a, b) => {
         const left = allPrompts[Number(a.dataset.originalIndex)];
         const right = allPrompts[Number(b.dataset.originalIndex)];
         return comparePromptsForUse(left, right);
       });
       regularItems.forEach((card) => regularList.appendChild(card));
-    }
-
-    if (resultCount) {
-      resultCount.textContent = String(visibleCount);
     }
 
     if (visibleCount === 0) {
@@ -1115,7 +1189,7 @@ document.addEventListener("DOMContentLoaded", () => {
           )}</div>
           <div class="empty-state-text">${escapeHtml(
             isEmpty
-              ? "这是你的 Prompt 快速调用层。点左侧「新增」添加第一条提示词即可开始使用。"
+              ? "点左侧「新增」添加第一条提示词，即可开始使用。"
               : "试试更短的关键词、切换分类，或在设置里检查是否有分类被隐藏。",
           )}</div>
           ${isEmpty ? `
@@ -1172,8 +1246,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const firstCard = document.querySelector(".card");
       if (firstCard) {
         firstCard.focus({ preventScroll: true });
-        selectCard(Number(firstCard.dataset.originalIndex));
-        firstCard.scrollIntoView({ block: "nearest" });
+        selectCard(Number(firstCard.dataset.originalIndex), false, { instant: true });
+        ensureCardVisible(firstCard);
         e.preventDefault();
       }
     }
@@ -1731,14 +1805,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  if (listHeaderTitle) {
-    listHeaderTitle.textContent = "快速调用";
-  }
   if (searchInput) {
-    searchInput.placeholder = "搜索并立即使用";
+    searchInput.placeholder = "搜索提示词";
   }
   if (settingsBtn) {
-    settingsBtn.title = "系统与整理";
+    settingsBtn.title = "设置";
   }
 
   window.addEventListener("load", () => {

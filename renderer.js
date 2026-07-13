@@ -171,11 +171,6 @@ function comparePromptsForUse(a, b) {
   return String(a.name || "").localeCompare(String(b.name || ""), "zh-CN");
 }
 
-function comparePromptsForManage(a, b) {
-  const tagDiff = normalizeTag(a?.tag).localeCompare(normalizeTag(b?.tag), "zh-CN");
-  if (tagDiff !== 0) return tagDiff;
-  return String(a?.name || "").localeCompare(String(b?.name || ""), "zh-CN");
-}
 
 function setPreviewActionButtonLabel(button, label) {
   if (!button) return;
@@ -204,10 +199,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalTitle = modal.querySelector("h2");
   const settingsBtn = document.getElementById("settingsBtn");
   const listHeaderTitle = document.getElementById("listHeaderTitle");
-  const modeUseBtn = document.getElementById("modeUseBtn");
-  const modeManageBtn = document.getElementById("modeManageBtn");
-  const modeSwitch = document.getElementById("modeSwitch");
-  const editModeIndicator = document.getElementById("editModeIndicator");
 
   const previewPanel = document.getElementById("previewPanel");
   const previewTitle = document.getElementById("previewTitle");
@@ -282,56 +273,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedIndex = null;
   let contextMenuTargetIndex = null;
   let renameTagOriginal = null;
-  let appMode = "use";
-
-  function loadAppMode() {
-    try {
-      const stored = window.localStorage.getItem("promptbox.appMode");
-      return stored === "manage" ? "manage" : "use";
-    } catch {
-      return "use";
-    }
-  }
-
-  function persistAppMode(mode) {
-    try {
-      window.localStorage.setItem("promptbox.appMode", mode);
-    } catch {}
-  }
-
-  function applyAppMode() {
-    document.body.dataset.appMode = appMode;
-    if (modeUseBtn) modeUseBtn.classList.toggle("active", appMode === "use");
-    if (modeManageBtn) modeManageBtn.classList.toggle("active", appMode === "manage");
-    if (searchInput) {
-      searchInput.placeholder = appMode === "manage" ? "搜索并整理提示词" : "搜索并立即使用";
-    }
-    if (settingsBtn) {
-      settingsBtn.title = appMode === "manage" ? "系统与整理" : "系统";
-    }
-    if (listHeaderTitle) {
-      listHeaderTitle.textContent = appMode === "manage" ? "整理提示词" : "快速调用";
-    }
-    if (editModeIndicator) {
-      editModeIndicator.textContent = appMode === "manage" ? "管理模式" : "使用模式";
-      editModeIndicator.style.color = appMode === "manage" ? "var(--accent)" : "var(--muted)";
-    }
-    if (appMode !== "manage") {
-      hideContextMenu();
-    }
-  }
-
-  function setAppMode(mode) {
-    appMode = mode === "manage" ? "manage" : "use";
-    persistAppMode(appMode);
-    applyAppMode();
-    renderAll();
-    if (selectedIndex !== null && allPrompts[selectedIndex]) {
-      updatePreview(allPrompts[selectedIndex]);
-    } else {
-      clearPreview();
-    }
-  }
 
   function sanitizeTagList(list) {
     if (list == null) return [];
@@ -361,9 +302,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getVisibleInAllCount() {
-    if (appMode === "manage") {
-      return allPrompts.length;
-    }
     return allPrompts.filter((item) => !isTagHidden(item.tag)).length;
   }
 
@@ -668,7 +606,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Context Menu Functions
   function showContextMenu(e, item) {
-    if (appMode !== "manage") return;
     if (!contextMenu) return;
     contextMenuTargetIndex = item.originalIndex;
 
@@ -772,17 +709,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function clearPreview() {
     selectedIndex = null;
-    if (previewTitle) previewTitle.textContent = appMode === "manage" ? "整理当前提示词" : "准备调用提示词";
+    if (previewTitle) previewTitle.textContent = "准备调用提示词";
     if (previewBody) {
       previewBody.textContent =
-        appMode === "manage"
-          ? "从左侧选择一条提示词，然后在右侧进行置顶、编辑或删除。"
-          : "先移动鼠标或键盘选中一条提示词，再单击卡片立即发送到当前输入框。";
+        "先移动鼠标或键盘选中一条提示词，再单击卡片立即发送到当前输入框。右键可编辑、置顶或删除。";
     }
     if (previewTag) previewTag.textContent = "未选择";
     if (previewMode) {
-      previewMode.textContent =
-        appMode === "manage" ? "请选择要整理的提示词" : "";
+      previewMode.textContent = "";
     }
     if (previewUsageStats) {
       previewUsageStats.textContent = "暂无使用记录";
@@ -804,10 +738,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (previewBody) previewBody.textContent = item.content || "";
     if (previewTag) previewTag.textContent = normalizeTag(item.tag) || "默认";
     if (previewMode) {
-      previewMode.textContent =
-        appMode === "manage"
-          ? "当前为管理模式：点击卡片只选中，不会直接执行"
-          : "";
+      previewMode.textContent = "";
     }
     if (previewUsageStats) {
       previewUsageStats.textContent = `${useText} · ${lastUsedText}`;
@@ -859,8 +790,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const nextCard = cards[nextIndex];
     if (!nextCard) return false;
 
-    nextCard.focus();
+    nextCard.focus({ preventScroll: true });
     selectCard(Number(nextCard.dataset.originalIndex));
+    nextCard.scrollIntoView({ block: "nearest", behavior: "smooth" });
     return true;
   }
 
@@ -1058,17 +990,20 @@ document.addEventListener("DOMContentLoaded", () => {
         normalizedTag.toLowerCase().includes(term);
       const matchesCategory =
         activeFilter === "all"
-          ? (appMode === "manage" || !isTagHidden(normalizedTag))
+          ? !isTagHidden(normalizedTag)
           : normalizedTag === activeFilter;
 
       if (matchesSearch && matchesCategory) {
         visibleCount += 1;
         const card = document.createElement("div");
         card.className = "card";
-        const interactionHint = appMode === "manage" ? "点击查看" : "单击即用";
+        const interactionHint = "单击即用";
         const { useText, lastUsedText } = getUsageSummary(item);
         if (item.isPinned) {
           card.classList.add("pinned-card");
+        }
+        if (selectedIndex === item.originalIndex) {
+          card.classList.add("active-card");
         }
 
         card.tabIndex = 0;
@@ -1077,40 +1012,19 @@ document.addEventListener("DOMContentLoaded", () => {
         card.addEventListener("focus", () => selectCard(item.originalIndex, true));
         card.addEventListener("click", async () => {
           selectCard(item.originalIndex);
-          card.focus();
-          if (appMode !== "manage") {
-            await handleUsePrompt();
-          }
+          card.focus({ preventScroll: true });
+          await handleUsePrompt();
         });
 
         const handleUsePrompt = async () => usePromptAtIndex(item.originalIndex, card);
 
+        // Arrow navigation is handled once at document level to avoid double-step jumps.
         card.onkeydown = (e) => {
-          const cards = document.querySelectorAll(".card");
-          const currentIndex = Array.from(cards).indexOf(card);
-
           if (e.key === "Enter") {
             e.preventDefault();
+            e.stopPropagation();
             selectCard(item.originalIndex);
-            if (appMode === "manage") {
-              if (previewEdit && !previewEdit.disabled) {
-                previewEdit.focus();
-              } else if (previewPin && !previewPin.disabled) {
-                previewPin.focus();
-              }
-            } else {
-              handleUsePrompt();
-            }
-          } else if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "Tab") {
-            if (currentIndex < cards.length - 1) {
-              cards[currentIndex + 1].focus();
-              e.preventDefault();
-            }
-          } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-            if (currentIndex > 0) {
-              cards[currentIndex - 1].focus();
-              e.preventDefault();
-            }
+            handleUsePrompt();
           }
         };
 
@@ -1152,65 +1066,39 @@ document.addEventListener("DOMContentLoaded", () => {
     pinnedItems.sort((a, b) => {
       const left = allPrompts[Number(a.dataset.originalIndex)];
       const right = allPrompts[Number(b.dataset.originalIndex)];
-      return appMode === "manage"
-        ? comparePromptsForManage(left, right)
-        : comparePromptsForUse(left, right);
+      return comparePromptsForUse(left, right);
     });
 
-    if (appMode === "manage") {
-      const manageItems = [
-        ...regularItems,
-        ...recentItems.map(({ card }) => card),
-      ];
+    recentItems.sort((a, b) => comparePromptsForUse(a.item, b.item));
 
-      manageItems.sort((a, b) => {
+    const surfacedRecentItems = recentItems.slice(0, 4);
+    const surfacedRecentSet = new Set(
+      surfacedRecentItems.map(({ item }) => item.originalIndex),
+    );
+    const remainingRecentCards = recentItems
+      .filter(({ item }) => !surfacedRecentSet.has(item.originalIndex))
+      .map(({ card }) => card);
+
+    regularItems.unshift(...remainingRecentCards);
+
+    if (pinnedItems.length > 0) {
+      const pinnedList = createSection("置顶快捷使用", "单击整张卡片直接执行 · 右键管理");
+      pinnedItems.forEach((card) => pinnedList.appendChild(card));
+    }
+
+    if (surfacedRecentItems.length > 0) {
+      const recentList = createSection("最近使用", "根据最近调用自动前置，帮助形成肌肉记忆");
+      surfacedRecentItems.forEach(({ card }) => recentList.appendChild(card));
+    }
+
+    if (regularItems.length > 0) {
+      const regularList = createSection("全部结果", "单击/回车使用 · 右键或右侧按钮管理");
+      regularItems.sort((a, b) => {
         const left = allPrompts[Number(a.dataset.originalIndex)];
         const right = allPrompts[Number(b.dataset.originalIndex)];
-        return comparePromptsForManage(left, right);
+        return comparePromptsForUse(left, right);
       });
-
-      if (pinnedItems.length > 0) {
-        const pinnedList = createSection("已置顶", "优先整理这些高频提示词");
-        pinnedItems.forEach((card) => pinnedList.appendChild(card));
-      }
-
-      if (manageItems.length > 0) {
-        const regularTitle = activeFilter === "all" ? "全部提示词" : `${activeFilter} 分类`;
-        const regularList = createSection(regularTitle, "点击查看详情，右侧进行整理");
-        manageItems.forEach((card) => regularList.appendChild(card));
-      }
-    } else {
-      recentItems.sort((a, b) => comparePromptsForUse(a.item, b.item));
-
-      const surfacedRecentItems = recentItems.slice(0, 4);
-      const surfacedRecentSet = new Set(
-        surfacedRecentItems.map(({ item }) => item.originalIndex),
-      );
-      const remainingRecentCards = recentItems
-        .filter(({ item }) => !surfacedRecentSet.has(item.originalIndex))
-        .map(({ card }) => card);
-
-      regularItems.unshift(...remainingRecentCards);
-
-      if (pinnedItems.length > 0) {
-        const pinnedList = createSection("置顶快捷使用", "单击整张卡片直接执行");
-        pinnedItems.forEach((card) => pinnedList.appendChild(card));
-      }
-
-      if (surfacedRecentItems.length > 0) {
-        const recentList = createSection("最近使用", "根据最近调用自动前置，帮助形成肌肉记忆");
-        surfacedRecentItems.forEach(({ card }) => recentList.appendChild(card));
-      }
-
-      if (regularItems.length > 0) {
-        const regularList = createSection("全部结果", "支持鼠标单击与键盘回车快速执行");
-        regularItems.sort((a, b) => {
-          const left = allPrompts[Number(a.dataset.originalIndex)];
-          const right = allPrompts[Number(b.dataset.originalIndex)];
-          return comparePromptsForUse(left, right);
-        });
-        regularItems.forEach((card) => regularList.appendChild(card));
-      }
+      regularItems.forEach((card) => regularList.appendChild(card));
     }
 
     if (resultCount) {
@@ -1227,18 +1115,18 @@ document.addEventListener("DOMContentLoaded", () => {
           )}</div>
           <div class="empty-state-text">${escapeHtml(
             isEmpty
-              ? "这是你的 Prompt 快速调用层。切换到管理模式，新增第一条提示词开始使用。"
-              : "试试更短的关键词、切换分类，或进入管理模式检查是否被隐藏。",
+              ? "这是你的 Prompt 快速调用层。点左侧「新增」添加第一条提示词即可开始使用。"
+              : "试试更短的关键词、切换分类，或在设置里检查是否有分类被隐藏。",
           )}</div>
           ${isEmpty ? `
           <div class="empty-state-actions">
-            <button class="empty-state-btn primary" onclick="document.getElementById('modeManageBtn').click()">
-              进入管理模式
+            <button class="empty-state-btn primary" onclick="document.getElementById('addBtn').click()">
+              新增提示词
             </button>
           </div>
           <div class="empty-state-shortcuts">
             <span>快捷键：</span>
-            <kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>P</kbd> 唤起 · 
+            <kbd>↑</kbd><kbd>↓</kbd> 选择 · 
             <kbd>↵</kbd> 使用 · 
             <kbd>⌘</kbd> + <kbd>,</kbd> 设置
           </div>
@@ -1283,7 +1171,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Enter" || e.key === "Tab") {
       const firstCard = document.querySelector(".card");
       if (firstCard) {
-        firstCard.focus();
+        firstCard.focus({ preventScroll: true });
+        selectCard(Number(firstCard.dataset.originalIndex));
+        firstCard.scrollIntoView({ block: "nearest" });
         e.preventDefault();
       }
     }
@@ -1752,23 +1642,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (pasteConfigApply) pasteConfigApply.onclick = applyPastedConfig;
 
-  if (modeUseBtn) {
-    modeUseBtn.onclick = () => setAppMode("use");
-  }
-
-  if (modeManageBtn) {
-    modeManageBtn.onclick = () => setAppMode("manage");
-  }
-
-  if (modeSwitch) {
-    modeSwitch.addEventListener("click", (e) => {
-      if (e.target && e.target !== modeSwitch) return;
-      const rect = modeSwitch.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      setAppMode(clickX >= rect.width / 2 ? "manage" : "use");
-    });
-  }
-
   function isTypingTarget(target) {
     if (!target) return false;
     const tagName = target.tagName;
@@ -1833,12 +1706,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (
+      (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey
+    ) {
       const isSearchFocused = e.target === searchInput;
       if (!isBlockingLayerOpen() && (!isTypingTarget(e.target) || isSearchFocused)) {
-        const moved = focusAdjacentCard(e.key === "ArrowDown" ? 1 : -1);
+        const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1;
+        const moved = focusAdjacentCard(step);
         if (moved) {
           e.preventDefault();
+          e.stopPropagation();
           return;
         }
       }
@@ -1851,8 +1731,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  appMode = loadAppMode();
-  applyAppMode();
+  if (listHeaderTitle) {
+    listHeaderTitle.textContent = "快速调用";
+  }
+  if (searchInput) {
+    searchInput.placeholder = "搜索并立即使用";
+  }
+  if (settingsBtn) {
+    settingsBtn.title = "系统与整理";
+  }
 
   window.addEventListener("load", () => {
     searchInput.focus();
@@ -1860,9 +1747,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (electronAPI?.onFocusSearch) {
     electronAPI.onFocusSearch(() => {
-      if (appMode !== "manage") {
-        clearSearchInput();
-      }
+      clearSearchInput();
       searchInput.focus();
       if (searchInput.value) {
         searchInput.select();

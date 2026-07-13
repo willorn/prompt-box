@@ -1480,42 +1480,6 @@
         box-shadow: none !important;
       }
 
-      .mode-switch {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0;
-        margin: 0 0 6px;
-        padding: 2px;
-        background: rgba(255, 255, 255, 0.72);
-        border: 1px solid #d9e4f2;
-        border-radius: 12px;
-        overflow: hidden;
-      }
-
-      .mode-switch-btn {
-        width: 100%;
-        min-height: 30px;
-        padding: 6px 10px !important;
-        border: none !important;
-        border-radius: 10px !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        color: var(--nb-text-muted) !important;
-        font-size: 12px !important;
-        font-weight: 600 !important;
-      }
-
-      .mode-switch-btn.active {
-        background: #ffffff !important;
-        color: var(--nb-ink) !important;
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
-      }
-
-      .mode-switch-btn:hover,
-      .mode-switch-btn:active {
-        transform: none !important;
-      }
-
       .search-wrapper::before {
         opacity: 0.72;
         filter: none;
@@ -1791,17 +1755,48 @@
       }
 
       .card.active-card,
-      .card:focus {
-        background: #f8fbff !important;
+      .card:focus,
+      .card:focus-visible {
+        background: #edf4ff !important;
+        border-color: #7aa8f5 !important;
         box-shadow:
-          0 0 0 1px rgba(79, 140, 255, 0.16),
-          0 18px 38px rgba(15, 23, 42, 0.09) !important;
+          0 0 0 2px rgba(79, 140, 255, 0.42),
+          0 0 0 5px rgba(79, 140, 255, 0.14),
+          0 16px 34px rgba(15, 23, 42, 0.1) !important;
+        outline: none;
+      }
+
+      .card.active-card {
+        position: relative;
+      }
+
+      .card.active-card::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 10px;
+        bottom: 10px;
+        width: 3px;
+        border-radius: 999px;
+        background: #4f8cff;
+        box-shadow: 0 0 0 1px rgba(79, 140, 255, 0.18);
       }
 
       .pinned-card {
         border-color: #d4e2f6 !important;
         box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08) !important;
         background: #f6faff !important;
+      }
+
+      .pinned-card.active-card,
+      .pinned-card:focus,
+      .pinned-card:focus-visible {
+        background: #e5f0ff !important;
+        border-color: #6f9ff0 !important;
+        box-shadow:
+          0 0 0 2px rgba(79, 140, 255, 0.48),
+          0 0 0 5px rgba(79, 140, 255, 0.16),
+          0 16px 34px rgba(15, 23, 42, 0.1) !important;
       }
 
       .card-header {
@@ -1881,7 +1876,7 @@
         white-space: nowrap;
       }
 
-      body[data-app-mode="use"] #previewMode {
+      #previewMode {
         display: none;
       }
 
@@ -1896,17 +1891,12 @@
         display: inline-flex !important;
         align-items: center;
         justify-content: center;
-        min-width: 32px;
-        max-width: 32px;
+        min-width: 0;
         height: 32px;
-        padding: 0 9px !important;
+        padding: 0 10px !important;
+        gap: 6px;
         overflow: hidden;
-        transition: max-width 0.18s ease, background 0.18s ease, border-color 0.18s ease;
-      }
-
-      .preview-action-manage:hover,
-      .preview-action-manage:focus-visible {
-        max-width: 88px;
+        white-space: nowrap;
       }
 
       .preview-action-icon {
@@ -1921,19 +1911,12 @@
       }
 
       .preview-action-label {
-        max-width: 0;
+        max-width: none;
         margin-left: 0;
-        opacity: 0;
-        overflow: hidden;
-        white-space: nowrap;
-        transition: max-width 0.18s ease, margin-left 0.18s ease, opacity 0.12s ease;
-      }
-
-      .preview-action-manage:hover .preview-action-label,
-      .preview-action-manage:focus-visible .preview-action-label {
-        max-width: 56px;
-        margin-left: 6px;
         opacity: 1;
+        overflow: visible;
+        white-space: nowrap;
+        font-size: 12px;
       }
 
       .preview-helper {
@@ -1946,19 +1929,9 @@
         background: rgba(255, 255, 255, 0.72);
       }
 
-      body[data-app-mode="use"] .preview-helper {
+      .preview-helper {
         border-style: solid;
         background: linear-gradient(180deg, rgba(237, 244, 255, 0.92), rgba(255, 255, 255, 0.9));
-      }
-
-      body[data-app-mode="manage"] .preview-helper {
-        border-color: #d9e4f2;
-        border-style: dashed;
-        background: rgba(248, 251, 255, 0.9);
-      }
-
-      body[data-app-mode="manage"] .preview-panel {
-        background: #f3f8ff !important;
       }
 
       .preview-helper-title {
@@ -2095,69 +2068,29 @@
         box-shadow: none !important;
       }
 
-      body[data-app-mode="use"] #addBtn,
-      body[data-app-mode="use"] #addTagBtn,
-      body[data-app-mode="use"] .manage-only {
-        display: none !important;
-      }
-
-      body[data-app-mode="manage"] #addTagBtn {
-        display: block !important;
-      }
-
-      body[data-app-mode="manage"] .use-only {
-        display: none !important;
-      }
-
-      /* Use Mode: Card is the primary action */
-      body[data-app-mode="use"] .card {
+      /* Card is the primary action: click/Enter uses the prompt. */
+      .card {
         position: relative;
         cursor: pointer;
         transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
-      body[data-app-mode="use"] .card::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        pointer-events: none;
-        transition: box-shadow 0.2s ease;
-      }
-
-      body[data-app-mode="use"] .card:hover::after {
-        box-shadow: inset 0 0 0 2px var(--pb-accent);
-      }
-
-      body[data-app-mode="use"] .card:active {
+      .card:active {
         transform: scale(0.995);
       }
 
-      body[data-app-mode="use"] .card-actions {
+      .card-actions {
         display: none !important;
       }
 
-      body[data-app-mode="use"] .card-hint {
+      .card-hint {
         background: var(--pb-accent-soft);
         color: var(--pb-accent);
         font-weight: 600;
       }
 
-      body[data-app-mode="use"] .card-section-title {
+      .card-section-title {
         color: var(--pb-accent);
-      }
-
-      /* Preview Panel: Use mode optimizations */
-      body[data-app-mode="use"] .preview-actions-inline {
-        display: none;
-      }
-
-      body[data-app-mode="manage"] #editModeIndicator {
-        opacity: 1 !important;
-      }
-
-      body[data-app-mode="use"] #editModeIndicator {
-        opacity: 0.6 !important;
       }
 
       /* Sidebar Footer & Settings Button */
@@ -2508,12 +2441,8 @@
         padding: 11px 12px !important;
       }
 
-      body[data-app-mode="use"] .card {
+      .card {
         cursor: pointer;
-      }
-
-      body[data-app-mode="manage"] .card {
-        cursor: default;
       }
 
       .card-title {
@@ -3036,10 +2965,6 @@
     <div class="app-container">
       <aside id="sidebar">
         <div class="logo">PromptBox</div>
-        <div class="mode-switch" id="modeSwitch" aria-label="应用模式切换">
-          <button class="mode-switch-btn active" id="modeUseBtn" type="button">使用</button>
-          <button class="mode-switch-btn" id="modeManageBtn" type="button">管理</button>
-        </div>
         <a href="#" class="nav-item active" data-filter="all">全部提示词</a>
         <button id="addTagBtn">+ 新增分类标签</button>
 
@@ -3063,9 +2988,9 @@
             <button class="menu-item" id="menuWebdav">同步与备份</button>
             <div class="menu-divider"></div>
             <button class="menu-item" id="menuPermissions">权限说明</button>
-            <div class="menu-divider manage-only"></div>
-            <div class="manage-only menu-section-title">整理</div>
-            <button class="menu-item manage-only" id="menuHiddenTags">隐藏分类</button>
+            <div class="menu-divider"></div>
+            <div class="menu-section-title">整理</div>
+            <button class="menu-item" id="menuHiddenTags">隐藏分类</button>
           </div>
         </aside>
 
@@ -3081,7 +3006,6 @@
             <div class="list-header" id="listHeader">
               <span id="listHeaderTitle">快速调用</span>
               <div class="list-header-meta">
-                <span id="editModeIndicator" class="mode-indicator">编辑模式</span>
                 <span id="resultCount">0</span>
               </div>
             </div>
@@ -3095,15 +3019,15 @@
                   <span class="preview-mode" id="previewMode">请选择要整理的提示词</span>
                 </div>
                 <div class="preview-actions-inline">
-                  <button class="ghost-btn manage-only preview-action-manage" id="previewPin" aria-label="置顶" title="置顶">
+                  <button class="ghost-btn preview-action-manage" id="previewPin" aria-label="置顶" title="置顶">
                     <span class="preview-action-icon" aria-hidden="true">●</span>
                     <span class="preview-action-label">置顶</span>
                   </button>
-                  <button class="ghost-btn manage-only preview-action-manage" id="previewEdit" aria-label="编辑" title="编辑">
+                  <button class="ghost-btn preview-action-manage" id="previewEdit" aria-label="编辑" title="编辑">
                     <span class="preview-action-icon" aria-hidden="true">✎</span>
                     <span class="preview-action-label">编辑</span>
                   </button>
-                  <button class="ghost-btn danger-btn manage-only preview-action-manage" id="previewDelete" aria-label="删除" title="删除">
+                  <button class="ghost-btn danger-btn preview-action-manage" id="previewDelete" aria-label="删除" title="删除">
                     <span class="preview-action-icon" aria-hidden="true">×</span>
                     <span class="preview-action-label">删除</span>
                   </button>
@@ -3111,7 +3035,7 @@
               </div>
               <div class="preview-title" id="previewTitle">准备调用提示词</div>
             </div>
-            <div class="preview-body" id="previewBody">先移动鼠标或键盘选中一条提示词，再单击卡片立即发送到当前输入框。</div>
+            <div class="preview-body" id="previewBody">先移动鼠标或键盘选中一条提示词，再单击卡片立即发送到当前输入框。右键可编辑、置顶或删除。</div>
             <div class="preview-usage-stats" id="previewUsageStats">暂无使用记录</div>
           </section>
         </div>

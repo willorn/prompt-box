@@ -30,11 +30,14 @@
 - `0.1.0 -> 0.1.1`：兼容性不变的小修复
 - `0.1.1 -> 0.2.0`：新增功能但兼容旧行为
 
-### 2. 本地构建
+### 2. 本地构建与预检
 
 ```bash
 bun run build
+bun run preflight
 ```
+
+`preflight` 会跑 verify、检查 release notes、确认 DMG/app 不比源码旧，并抽查 asar 主路径符号。
 
 构建完成后确认下面文件存在：
 
@@ -56,7 +59,7 @@ git status --short
 ### 4. 提交并推送代码
 
 ```bash
-git add package.json README.md renderer.js docs
+git add package.json README.md index.html main.js preload.cjs renderer.js lib tests docs
 git commit -m "feat: <本次版本的核心变化>"
 git push origin main
 ```

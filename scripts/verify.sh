@@ -54,6 +54,10 @@ if (!renderer.includes("isModalLayerOpen") || !renderer.includes("dismissSystemM
 if (!renderer.includes("空搜索时数字键") || !renderer.includes("首次使用默认收起预览")) {
   throw new Error("missing bare digit rank use / dense first-run preview in renderer.js");
 }
+if (!renderer.includes("仅复制成功：轻闪卡片即可，不弹 toast") || !renderer.includes("调用层成功路径保持静默")) {
+  throw new Error("missing silent copy/paste success path in renderer.js");
+}
+
 if (!renderer.includes("loadSidebarCollapsed") || !renderer.includes("toggleSidebarCollapsed")) {
   throw new Error("missing sidebar collapse call-layer polish in renderer.js");
 }

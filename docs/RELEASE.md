@@ -97,7 +97,7 @@ gh auth status
 ```bash
 gh release create electron-v<version> \
   dist/PromptBox-<version>-arm64.dmg \
-  --repo willorn/mac-prompt \
+  --repo willorn/prompt-box \
   --title "PromptBox v<version>" \
   --notes-file .github/release-notes-<version>.md
 ```

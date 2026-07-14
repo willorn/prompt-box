@@ -59,6 +59,10 @@ test("renderer keeps critical call-path helpers", () => {
   assert.match(src, /key\.toLowerCase\(\) === \"n\"/);
   assert.match(src, /key\.toLowerCase\(\) === \"f\"/);
   assert.match(src, /调用层成功路径保持静默/);
+  assert.match(src, /仅复制成功：轻闪卡片即可，不弹 toast/);
+  assert.match(src, /复制成功不 toast/);
+  assert.match(src, /分享成功不 toast/);
+  assert.match(src, /未自动粘贴：内容已在剪贴板/);
   assert.match(src, /queueSilentSave/);
   assert.match(src, /setUseInFlight/);
   assert.match(src, /call-use-in-flight/);

@@ -995,7 +995,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 220);
   }
 
-  function showToast(message = "已复制到剪贴板", options = {}) {
+  function showToast(message = "", options = {}) {
     const toast = document.getElementById("toast");
     if (!toast) return;
     toast.setAttribute("role", "status");
@@ -1146,7 +1146,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("复制失败");
       return false;
     }
-    showToast("已复制内容");
+    // 复制成功不 toast：用户仍在窗口内，剪贴板结果可直观验证。
     return true;
   }
 
@@ -1207,7 +1207,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("分享失败：无法写入剪贴板");
       return false;
     }
-    showToast(format === "json" ? "已复制 JSON 分享文本" : "已复制 Markdown 分享文本");
+    // 分享成功不 toast：仍停在管理层，失败才提示。
     return true;
   }
 
@@ -1826,9 +1826,8 @@ document.addEventListener("DOMContentLoaded", () => {
         markPromptUsed(item);
         selectedIndex = index;
         await saveData({ render: false });
+        // 仅复制成功：轻闪卡片即可，不弹 toast 打断连续取用。
         flashCard(card, "card-copy-only");
-        const label = (String(item.name || "提示词").trim() || "提示词").slice(0, 28);
-        showToast(`已复制：${label}（未粘贴）`);
         return { copied: true, pasted: false, copyOnly: true };
       }
 
@@ -1842,7 +1841,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       markPromptUsed(item);
       selectedIndex = index;
-      const label = (String(item.name || "提示词").trim() || "提示词").slice(0, 28);
       if (result.pasted) {
         // 成功粘贴后异步串行静默保存：不挡 useInFlight，且连点不互相覆盖。
         queueSilentSave();
@@ -1854,7 +1852,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await saveData({ render: false });
 
       if (result.requiresAccessibilityPermission) {
-        await notifyUser(`已复制：${label}（需辅助功能权限）`, { system: true });
+        await notifyUser(`未自动粘贴：需辅助功能权限（可 ⌘V）`, { system: true });
         // 每个会话只自动打开一次设置，避免连续调用被系统设置页抢走焦点。
         if (!a11ySettingsOpenedThisSession) {
           a11ySettingsOpenedThisSession = true;
@@ -1862,14 +1860,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         closeCurrentWindowSilently();
       } else if (result.requiresAutomationPermission) {
-        await notifyUser(`已复制：${label}（需自动化权限）`, { system: true });
+        await notifyUser(`未自动粘贴：需自动化权限（可 ⌘V）`, { system: true });
         if (!automationSettingsOpenedThisSession) {
           automationSettingsOpenedThisSession = true;
           void openAutomationSettings();
         }
         closeCurrentWindowSilently();
       } else {
-        await notifyUser(`已复制：${label}（未自动粘贴）`, { system: true });
+        await notifyUser(`未自动粘贴：内容已在剪贴板，可 ⌘V`, { system: true });
         closeCurrentWindowSilently();
       }
 
@@ -3344,7 +3342,7 @@ document.addEventListener("DOMContentLoaded", () => {
     copyConfigBtn.onclick = async () => {
       try {
         await navigator.clipboard.writeText(copyConfigText?.value || "");
-        showToast("已复制到剪贴板");
+        // 配置复制成功不 toast，关弹层即可。
         closeCopyConfigModal();
       } catch (err) {
         await safeAlert(`复制失败: ${err}`);

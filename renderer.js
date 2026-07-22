@@ -517,9 +517,61 @@ document.addEventListener("DOMContentLoaded", () => {
   let toastHideTimer = null;
   let toastClearTimer = null;
   let useInFlight = false;
-  let a11yTipShown = false;
-  let a11ySettingsOpenedThisSession = false;
+  // 权限引导节流：按可执行路径/身份冷却，重装后路径变了会再提示/再打开设置。
+  const A11Y_GUIDE_COOLDOWN_MS = 45_000;
+  let a11yGuideState = {
+    tipIdentity: "",
+    tipAt: 0,
+    settingsIdentity: "",
+    settingsAt: 0,
+  };
   let automationSettingsOpenedThisSession = false;
+
+  function getA11yIdentityKey(diagnostics) {
+    return String(
+      diagnostics?.accessibilityIdentity ||
+        diagnostics?.targetPath ||
+        "unknown",
+    );
+  }
+
+  function shouldShowA11yTip(diagnostics) {
+    if (diagnostics?.accessibilityTrusted !== false) return false;
+    const identity = getA11yIdentityKey(diagnostics);
+    const now = Date.now();
+    if (
+      a11yGuideState.tipIdentity === identity &&
+      a11yGuideState.tipAt &&
+      now - a11yGuideState.tipAt < A11Y_GUIDE_COOLDOWN_MS
+    ) {
+      return false;
+    }
+    a11yGuideState.tipIdentity = identity;
+    a11yGuideState.tipAt = now;
+    return true;
+  }
+
+  function shouldOpenA11ySettings(diagnostics) {
+    const identity = getA11yIdentityKey(diagnostics);
+    const now = Date.now();
+    if (
+      a11yGuideState.settingsIdentity === identity &&
+      a11yGuideState.settingsAt &&
+      now - a11yGuideState.settingsAt < A11Y_GUIDE_COOLDOWN_MS
+    ) {
+      return false;
+    }
+    a11yGuideState.settingsIdentity = identity;
+    a11yGuideState.settingsAt = now;
+    return true;
+  }
+
+  async function maybeGuideAccessibility(diagnostics, { openSettings = false } = {}) {
+    if (!diagnostics || diagnostics.accessibilityTrusted !== false) return;
+    if (openSettings && shouldOpenA11ySettings(diagnostics)) {
+      void openAccessibilitySettings();
+    }
+  }
 
   function sanitizeTagList(list) {
     if (list == null) return [];
@@ -1853,11 +1905,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (result.requiresAccessibilityPermission) {
         await notifyUser(`未自动粘贴：需辅助功能权限（可 ⌘V）`, { system: true });
-        // 每个会话只自动打开一次设置，避免连续调用被系统设置页抢走焦点。
-        if (!a11ySettingsOpenedThisSession) {
-          a11ySettingsOpenedThisSession = true;
-          void openAccessibilitySettings();
-        }
+        // 按身份+冷却打开设置；重装后路径变化或冷却过后可再引导。
+        let diagnostics = null;
+        try {
+          diagnostics = await electronAPI?.getPermissionDiagnostics?.();
+        } catch {}
+        await maybeGuideAccessibility(diagnostics || { accessibilityTrusted: false }, {
+          openSettings: true,
+        });
         closeCurrentWindowSilently();
       } else if (result.requiresAutomationPermission) {
         await notifyUser(`未自动粘贴：需自动化权限（可 ⌘V）`, { system: true });
@@ -2999,6 +3054,9 @@ document.addEventListener("DOMContentLoaded", () => {
             ? "5. 当前检测结果：辅助功能已授权；若仍无法自动粘贴，请检查“自动化 -> Electron -> System Events”。"
             : "5. 当前检测结果：暂时无法读取辅助功能状态。",
         "",
+        "重装或覆盖安装后，系统可能仍显示旧勾选但实际已失效。",
+        "请先关闭 PromptBox，在“辅助功能”里移除旧条目再重新添加/开启，然后重启应用。",
+        "",
         "点击“确定”后将尝试打开“辅助功能”设置页。",
         "若辅助功能已开但仍不能自动粘贴，再到“自动化”里允许 Electron 控制 System Events。",
       ].join("\n");
@@ -3928,15 +3986,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (hasSearchInputChars()) {
         searchInput.select();
       }
-      // 首次唤起时轻提示权限，不打断调用主路径。
-      if (!a11yTipShown && electronAPI?.getPermissionDiagnostics) {
-        a11yTipShown = true;
+      // 每次唤起复检辅助功能：重装/关再开后若仍未授权，按身份冷却轻提示。
+      if (electronAPI?.getPermissionDiagnostics) {
         void electronAPI
           .getPermissionDiagnostics()
           .then((diagnostics) => {
-            if (diagnostics?.accessibilityTrusted === false) {
-              showToast("自动粘贴需辅助功能权限 · 可在设置中查看", {
-                duration: 4200,
+            if (shouldShowA11yTip(diagnostics)) {
+              showToast("自动粘贴需辅助功能权限 · 重装后请关闭旧勾选再允许", {
+                duration: 4800,
               });
             }
           })

@@ -33,7 +33,12 @@ test("renderer keeps critical call-path helpers", () => {
   assert.match(src, /copyOnly/);
   assert.match(src, /closeAllBlockingLayers/);
   assert.match(src, /openAccessibilitySettings/);
-  assert.match(src, /a11ySettingsOpenedThisSession/);
+  assert.match(src, /a11yGuideState/);
+  assert.match(src, /shouldShowA11yTip/);
+  assert.match(src, /shouldOpenA11ySettings/);
+  assert.match(src, /maybeGuideAccessibility/);
+  assert.match(src, /accessibilityIdentity/);
+  assert.match(src, /重装后请关闭旧勾选再允许/);
   assert.match(src, /automationSettingsOpenedThisSession/);
   assert.match(src, /带撤销的 toast 需要人点一下/);
   assert.match(src, /先收起 toast/);
@@ -185,8 +190,13 @@ test("main process exposes copy-paste and hide IPC", () => {
   assert.match(src, /resolvePasteTargetApp/);
   assert.match(src, /lastSuccessfulPasteTarget/);
   assert.match(src, /rememberSuccessfulPasteTarget/);
-  assert.match(src, /accessibilityPromptTriggered/);
+  assert.match(src, /accessibilityPromptState/);
+  assert.match(src, /getAccessibilityIdentity/);
+  assert.match(src, /isAccessibilityTrusted/);
+  assert.match(src, /noteAccessibilityTrustRevoked/);
+  assert.match(src, /ACCESSIBILITY_PROMPT_COOLDOWN_MS/);
   assert.match(src, /调用主路径优先/);
+  assert.match(src, /accessibilityIdentity/);
   assert.match(src, /applyRestoredPrompts/);
   assert.match(src, /getDefaultSamplePrompts/);
   assert.match(src, /retrying once/);

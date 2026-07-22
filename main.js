@@ -193,8 +193,14 @@ let lastPasteTargetApp = "";
 let lastPasteTargetPid = 0;
 // 实际注册成功的全局快捷键（冲突时可能回退）。
 let activeGlobalHotkey = "Alt+E";
-// 每个会话最多触发一次系统辅助功能授权提示，避免每次粘贴都阻塞。
-let accessibilityPromptTriggered = false;
+// 辅助功能授权提示状态：按进程身份节流，重装/路径变化或冷却过后可再触发。
+// 旧实现「每会话只弹一次」在用户稍后点允许、或重装后 TCC 失效时过于僵硬。
+const ACCESSIBILITY_PROMPT_COOLDOWN_MS = 45_000;
+let accessibilityPromptState = {
+  identity: "",
+  promptedAt: 0,
+  lastTrusted: null,
+};
 // 粘贴成功后恢复用户原剪贴板的定时器；再次粘贴时取消，避免连续粘贴被抢回。
 let clipboardRestoreTimer = null;
 // 待恢复的剪贴板内容；退出时若仍占着本次提示词则立即还回。
@@ -799,6 +805,29 @@ function getAccessibilityTargetInfo() {
   };
 }
 
+function getAccessibilityIdentity() {
+  // 打包/开发 + 可执行路径：重装覆盖或从不同路径启动视为新身份，可再次系统提示。
+  return `${app.isPackaged ? "pkg" : "dev"}:${process.execPath}`;
+}
+
+function isAccessibilityTrusted() {
+  if (process.platform !== "darwin") {
+    return true;
+  }
+  try {
+    return systemPreferences.isTrustedAccessibilityClient(false) === true;
+  } catch (error) {
+    console.error("isTrustedAccessibilityClient failed", error);
+    return false;
+  }
+}
+
+function noteAccessibilityTrustRevoked() {
+  // isTrusted 曾为 true 但粘贴仍报辅助功能错误（重装后 TCC 残留勾选失效等）。
+  accessibilityPromptState.lastTrusted = false;
+  accessibilityPromptState.promptedAt = 0;
+}
+
 function classifyAppleScriptPasteError(error) {
   const message = String(error instanceof Error ? error.message : error || "");
 
@@ -1093,24 +1122,42 @@ async function pasteClipboardToFrontmostApp() {
   }
 }
 
-function ensureAccessibilityPermission() {
+function ensureAccessibilityPermission({ prompt = true } = {}) {
   if (process.platform !== "darwin") {
     return true;
   }
-  if (systemPreferences.isTrustedAccessibilityClient(false)) {
+
+  const identity = getAccessibilityIdentity();
+  const trusted = isAccessibilityTrusted();
+  const now = Date.now();
+
+  if (trusted) {
+    accessibilityPromptState.identity = identity;
+    accessibilityPromptState.lastTrusted = true;
     return true;
   }
 
   // 调用主路径优先：不在这里弹阻塞对话框（渲染进程会发通知并引导设置）。
-  // 每个会话最多触发一次系统授权提示，避免连点粘贴时反复打断。
-  if (!accessibilityPromptTriggered) {
-    accessibilityPromptTriggered = true;
-    try {
-      systemPreferences.isTrustedAccessibilityClient(true);
-    } catch (error) {
-      console.error("trigger accessibility prompt failed", error);
+  // 节流规则：同一进程身份 + 冷却内不重复系统 prompt；身份变化/冷却过后/从已授权变未授权可再触发。
+  if (prompt) {
+    const identityChanged = accessibilityPromptState.identity !== identity;
+    const wasTrusted = accessibilityPromptState.lastTrusted === true;
+    const cooledDown =
+      !accessibilityPromptState.promptedAt ||
+      now - accessibilityPromptState.promptedAt >= ACCESSIBILITY_PROMPT_COOLDOWN_MS;
+    if (identityChanged || wasTrusted || cooledDown) {
+      accessibilityPromptState.identity = identity;
+      accessibilityPromptState.promptedAt = now;
+      try {
+        systemPreferences.isTrustedAccessibilityClient(true);
+      } catch (error) {
+        console.error("trigger accessibility prompt failed", error);
+      }
     }
   }
+
+  accessibilityPromptState.identity = identity;
+  accessibilityPromptState.lastTrusted = false;
   return false;
 }
 
@@ -1610,6 +1657,10 @@ ipcMain.handle("copy-paste-prompt", async (_event, text) => {
   } catch (error) {
     const classified = classifyAppleScriptPasteError(error);
     console.error("Paste after hide failed", classified.type, classified.message);
+    if (classified.type === "accessibility") {
+      // TCC 勾选残留但实际不可用（常见于重装后路径变化）时，回写状态以便下次能再引导。
+      noteAccessibilityTrustRevoked();
+    }
     return {
       copied: true,
       pasted: false,
@@ -1666,13 +1717,15 @@ ipcMain.handle("get-app-info", () => {
 });
 
 ipcMain.handle("get-permission-diagnostics", () => {
+  const identity = getAccessibilityIdentity();
   const accessibilityTrusted =
-    process.platform === "darwin"
-      ? systemPreferences.isTrustedAccessibilityClient(false)
-      : true;
+    process.platform === "darwin" ? isAccessibilityTrusted() : true;
+  accessibilityPromptState.identity = identity;
+  accessibilityPromptState.lastTrusted = accessibilityTrusted;
   return {
     platform: process.platform,
     accessibilityTrusted,
+    accessibilityIdentity: identity,
     ...getAccessibilityTargetInfo(),
   };
 });

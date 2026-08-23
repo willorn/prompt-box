@@ -10,16 +10,16 @@
 
 ## 下载
 
-[**macOS Apple Silicon · v0.3.0**](https://github.com/willorn/prompt-box/releases/download/electron-v0.3.0/PromptBox-0.3.0-arm64.dmg)
+[**macOS Apple Silicon · v0.3.0**](https://github.com/willorn/prompt-box/releases/download/v0.3.0/PromptBox_0.3.0_aarch64.dmg)
 
-其它版本见 [Releases](https://github.com/willorn/prompt-box/releases)。未签名：首次打开按系统提示允许；自动粘贴需给 **辅助功能** 权限。
+其它版本见 [Releases](https://github.com/willorn/prompt-box/releases)。未签名：首次打开右键 → 打开；自动粘贴需给 **辅助功能** 权限。
 
 ## 30 秒上手
 
 1. 安装后后台待命  
 2. **`Alt+E`** 唤起（冲突可在系统菜单换键）  
 3. 打字搜索，或 `1–9` / Enter 选用  
-4. 单击即尽量自动粘贴；`Shift+单击` 只复制  
+4. 单击即自动粘贴；`Shift+单击` 只复制  
 
 成功不弹窗；失败或未授权时再提示，内容仍在剪贴板可 ⌘V。
 
@@ -32,11 +32,20 @@
 ## 开发
 
 ```bash
-bun install
-bun run dev
-bun run verify   # 发版前检查
-bun run build    # 打 arm64 dmg
+# 日常迭代（build → deploy → sign → restart）
+cd tauri && ./redeploy.sh
+
+# 仅 cargo test
+cd tauri && cargo test
+
+# JS helpers 测试
+node --test tests/prompt-helpers.test.mjs
+
+# 发版打包（DMG）
+cd tauri && ./build-dmg.sh
 ```
+
+技术栈：Tauri 2 (Rust) · WKWebView · 零 Node.js 依赖。
 
 发布流程：[docs/RELEASE.md](docs/RELEASE.md) · 日志：[docs/CHANGELOG.md](docs/CHANGELOG.md)
 

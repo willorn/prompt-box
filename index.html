@@ -9,8 +9,11 @@
         try {
           var key = "promptbox.themeMode";
           var mode = localStorage.getItem(key) || "system";
-          if (mode !== "light" && mode !== "dark" && mode !== "system") mode = "system";
-          var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          if (mode !== "light" && mode !== "dark" && mode !== "system")
+            mode = "system";
+          var prefersDark =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
           var dark = mode === "dark" || (mode === "system" && prefersDark);
           document.documentElement.setAttribute("data-theme", mode);
           document.documentElement.classList.toggle("theme-dark-pending", dark);
@@ -42,8 +45,14 @@
       body {
         margin: 0;
         padding: 0;
-        font-family: "SF Pro Text", "SF Pro Display", "PingFang SC", "Noto Sans CJK SC", "Helvetica Neue", sans-serif;
-        background: radial-gradient(1200px 500px at 0% 0%, var(--bg-warm), var(--bg));
+        font-family:
+          "SF Pro Text", "SF Pro Display", "PingFang SC", "Noto Sans CJK SC",
+          "Helvetica Neue", sans-serif;
+        background: radial-gradient(
+          1200px 500px at 0% 0%,
+          var(--bg-warm),
+          var(--bg)
+        );
         color: var(--text);
         overflow: hidden;
         letter-spacing: 0.1px;
@@ -202,7 +211,11 @@
 
       .preview-panel {
         --preview-hue: 220;
-        background: radial-gradient(600px 220px at 0% 0%, hsla(var(--preview-hue), 80%, 94%, 0.9), rgba(255, 255, 255, 0.92));
+        background: radial-gradient(
+          600px 220px at 0% 0%,
+          hsla(var(--preview-hue), 80%, 94%, 0.9),
+          rgba(255, 255, 255, 0.92)
+        );
         border: 1px solid var(--border);
         border-radius: 22px;
         padding: 20px 22px;
@@ -364,7 +377,9 @@
         font-size: 12.5px;
         background: #ffffff;
         outline: none;
-        transition: border 0.2s ease, box-shadow 0.2s ease;
+        transition:
+          border 0.2s ease,
+          box-shadow 0.2s ease;
       }
 
       .modal-input:focus,
@@ -704,7 +719,8 @@
       }
 
       body {
-        font-family: "Avenir Next Condensed", "Arial Narrow", "PingFang SC",
+        font-family:
+          "Avenir Next Condensed", "Arial Narrow", "PingFang SC",
           "Noto Sans CJK SC", sans-serif;
         background:
           linear-gradient(180deg, #ffd84d 0 18%, #f6e9c9 18% 100%),
@@ -722,8 +738,18 @@
         inset: 0;
         pointer-events: none;
         background:
-          linear-gradient(90deg, transparent 0 94%, rgba(16, 16, 16, 0.08) 94% 95%, transparent 95% 100%),
-          linear-gradient(0deg, transparent 0 94%, rgba(16, 16, 16, 0.08) 94% 95%, transparent 95% 100%);
+          linear-gradient(
+            90deg,
+            transparent 0 94%,
+            rgba(16, 16, 16, 0.08) 94% 95%,
+            transparent 95% 100%
+          ),
+          linear-gradient(
+            0deg,
+            transparent 0 94%,
+            rgba(16, 16, 16, 0.08) 94% 95%,
+            transparent 95% 100%
+          );
         background-size: 36px 36px;
         opacity: 0.55;
       }
@@ -779,7 +805,10 @@
         border: 3px solid var(--ink);
         border-radius: 8px;
         box-shadow: 4px 4px 0 var(--ink);
-        transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+        transition:
+          transform 0.14s ease,
+          box-shadow 0.14s ease,
+          background 0.14s ease;
       }
 
       .nav-item:hover {
@@ -886,7 +915,10 @@
         color: var(--ink) !important;
         font-family: inherit;
         font-weight: 700;
-        transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+        transition:
+          transform 0.14s ease,
+          box-shadow 0.14s ease,
+          background 0.14s ease;
       }
 
       #settingsBtn {
@@ -998,7 +1030,10 @@
         border: 3px solid var(--ink);
         border-radius: 8px;
         box-shadow: 4px 4px 0 var(--ink);
-        transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+        transition:
+          transform 0.14s ease,
+          box-shadow 0.14s ease,
+          background 0.14s ease;
       }
 
       .card:hover {
@@ -1156,9 +1191,9 @@
       #hiddenTagsOverlay,
       #renameTagOverlay,
       #copyConfigOverlay,
-      #pasteConfigOverlay {
-        background:
-          rgba(16, 16, 16, 0.22) !important;
+      #pasteConfigOverlay,
+      #permissionOverlay {
+        background: rgba(16, 16, 16, 0.22) !important;
         backdrop-filter: blur(1px) !important;
       }
 
@@ -1361,7 +1396,9 @@
       }
 
       body {
-        font-family: "Avenir Next", "SF Pro Text", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+        font-family:
+          "Avenir Next", "SF Pro Text", "PingFang SC", "Noto Sans CJK SC",
+          sans-serif;
         background:
           radial-gradient(900px 420px at 0% 0%, #f7fbff 0%, transparent 60%),
           linear-gradient(180deg, #f3f8ff 0%, var(--nb-bg) 100%);
@@ -1434,7 +1471,10 @@
         border: none !important;
         border-radius: 8px;
         box-shadow: none !important;
-        transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+        transition:
+          background 0.16s ease,
+          color 0.16s ease,
+          box-shadow 0.16s ease;
       }
 
       .nav-item:hover {
@@ -1558,7 +1598,10 @@
         color: var(--nb-ink) !important;
         font-family: inherit;
         font-weight: 600;
-        transition: background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+        transition:
+          background 0.16s ease,
+          box-shadow 0.16s ease,
+          transform 0.16s ease;
       }
 
       #settingsBtn,
@@ -1748,7 +1791,10 @@
         border: 1px solid #e2ebf5 !important;
         border-radius: 12px !important;
         box-shadow: none !important;
-        transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+        transition:
+          background 0.12s ease,
+          border-color 0.12s ease,
+          box-shadow 0.12s ease;
         width: 100%;
         min-width: 0;
         will-change: auto;
@@ -1983,7 +2029,11 @@
 
       .preview-helper {
         border-style: solid;
-        background: linear-gradient(180deg, rgba(237, 244, 255, 0.92), rgba(255, 255, 255, 0.9));
+        background: linear-gradient(
+          180deg,
+          rgba(237, 244, 255, 0.92),
+          rgba(255, 255, 255, 0.9)
+        );
       }
 
       .preview-helper-title {
@@ -2088,7 +2138,6 @@
         box-shadow: none !important;
       }
 
-
       .danger-btn {
         color: #9a5567 !important;
         background: #f9ecef !important;
@@ -2151,7 +2200,8 @@
         border-radius: 10px !important;
         box-shadow: none !important;
         color: var(--pb-muted) !important;
-        font-family: "SF Pro Text", "PingFang SC", "Noto Sans CJK SC", sans-serif !important;
+        font-family:
+          "SF Pro Text", "PingFang SC", "Noto Sans CJK SC", sans-serif !important;
         font-size: 12px !important;
         line-height: 1;
         letter-spacing: 0;
@@ -2281,7 +2331,8 @@
       #hiddenTagsOverlay,
       #renameTagOverlay,
       #copyConfigOverlay,
-      #pasteConfigOverlay {
+      #pasteConfigOverlay,
+      #permissionOverlay {
         background: rgba(15, 23, 42, 0.14) !important;
         backdrop-filter: blur(10px) !important;
       }
@@ -2553,7 +2604,6 @@
         min-width: 48px !important;
       }
 
-      
       .header-add-btn,
       .header-settings-btn {
         min-width: 48px !important;
@@ -2622,10 +2672,11 @@
         color: #fff;
       }
 
-
       .card:focus-visible {
         outline: none;
-        box-shadow: inset 3px 0 0 #4f8cff, 0 0 0 2px rgba(79, 140, 255, 0.28) !important;
+        box-shadow:
+          inset 3px 0 0 #4f8cff,
+          0 0 0 2px rgba(79, 140, 255, 0.28) !important;
       }
 
       .list-scroll {
@@ -2683,7 +2734,11 @@
       .preview-panel {
         padding: 18px 18px 16px !important;
         gap: 12px !important;
-        background: linear-gradient(180deg, #f7fbff 0%, #f2f7ff 100%) !important;
+        background: linear-gradient(
+          180deg,
+          #f7fbff 0%,
+          #f2f7ff 100%
+        ) !important;
       }
 
       .preview-title {
@@ -2745,7 +2800,6 @@
       .preview-helper-text {
         font-size: 12px !important;
       }
-
 
       .empty-state {
         display: flex;
@@ -2918,7 +2972,9 @@
       .mode-indicator {
         font-size: 11px;
         opacity: 0;
-        transition: opacity 0.2s ease, color 0.2s ease;
+        transition:
+          opacity 0.2s ease,
+          color 0.2s ease;
       }
 
       .prompt-modal {
@@ -2967,7 +3023,8 @@
       #modalOverlay,
       #webdavOverlay,
       #copyConfigOverlay,
-      #pasteConfigOverlay {
+      #pasteConfigOverlay,
+      #permissionOverlay {
         display: none;
         position: fixed;
         inset: 0;
@@ -2985,8 +3042,71 @@
       }
 
       #copyConfigOverlay,
-      #pasteConfigOverlay {
+      #pasteConfigOverlay,
+      #permissionOverlay {
         z-index: 130;
+      }
+
+      .permission-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0 2px;
+      }
+
+      .permission-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .permission-desc {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .permission-badge {
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .permission-badge.is-ok {
+        color: #248a3d;
+        border-color: rgba(36, 138, 61, 0.35);
+        background: rgba(36, 138, 61, 0.08);
+      }
+
+      .permission-badge.is-bad {
+        color: #d70015;
+        border-color: rgba(215, 0, 21, 0.3);
+        background: rgba(215, 0, 21, 0.07);
+      }
+
+      .permission-action {
+        display: none;
+        margin-top: 6px;
+        font-size: 12px;
+        padding: 5px 12px;
+      }
+
+      .permission-action.is-visible {
+        display: inline-block;
+      }
+
+      .permission-identity {
+        font-size: 11px;
+        color: var(--muted);
+        word-break: break-all;
+        margin-top: 10px;
+        line-height: 1.5;
+        white-space: pre-line;
       }
 
       .system-modal-card--wide {
@@ -3233,8 +3353,6 @@
         -webkit-box-decoration-break: clone;
       }
 
-
-
       /* 预览区管理按钮：图标化（Lucide 线框），悬停看 title */
       .preview-actions-inline {
         display: inline-flex !important;
@@ -3243,7 +3361,6 @@
         gap: 4px !important;
         line-height: 0 !important;
       }
-
 
       /* 编辑与其它预览管理图标同级：默认不高亮（旧主题把 #previewEdit 当主按钮） */
       #previewEdit.preview-action-icon-btn,
@@ -3372,7 +3489,8 @@
         color: #e2e8f0 !important;
       }
 
-      body.theme-dark .preview-action-icon-btn#previewDelete:hover:not(:disabled) {
+      body.theme-dark
+        .preview-action-icon-btn#previewDelete:hover:not(:disabled) {
         color: #f87171 !important;
         background: rgba(248, 113, 113, 0.12) !important;
         border-color: rgba(248, 113, 113, 0.28) !important;
@@ -3721,7 +3839,6 @@
         padding: 12px 14px !important;
       }
 
-
       .preview-use-btn,
       .accent-btn.preview-use-btn {
         height: 40px !important;
@@ -3890,7 +4007,11 @@
         --pb-text: #e7eef9;
         --pb-accent: #6aa4ff;
         background:
-          radial-gradient(900px 420px at 0% 0%, rgba(80, 120, 200, 0.12) 0%, transparent 60%),
+          radial-gradient(
+            900px 420px at 0% 0%,
+            rgba(80, 120, 200, 0.12) 0%,
+            transparent 60%
+          ),
           linear-gradient(180deg, #121821 0%, var(--nb-bg) 100%) !important;
         color: var(--nb-ink) !important;
       }
@@ -3927,7 +4048,11 @@
       }
 
       body.theme-dark .preview-panel {
-        background: linear-gradient(180deg, #1a2330 0%, #151c27 100%) !important;
+        background: linear-gradient(
+          180deg,
+          #1a2330 0%,
+          #151c27 100%
+        ) !important;
       }
 
       body.theme-dark .card,
@@ -4065,7 +4190,8 @@
       body.theme-dark #hiddenTagsOverlay,
       body.theme-dark #renameTagOverlay,
       body.theme-dark #copyConfigOverlay,
-      body.theme-dark #pasteConfigOverlay {
+      body.theme-dark #pasteConfigOverlay,
+      body.theme-dark #permissionOverlay {
         background: rgba(4, 8, 14, 0.55) !important;
       }
 
@@ -4092,7 +4218,7 @@
         background: rgba(106, 164, 255, 0.14);
         color: #c7dbff;
       }
-    
+
       .card.card-using {
         transform: scale(0.985);
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.55);
@@ -4111,7 +4237,7 @@
         pointer-events: none;
         opacity: 0.7;
       }
-</style>
+    </style>
     <script type="module" src="./renderer.js" defer></script>
   </head>
 
@@ -4123,7 +4249,11 @@
         <button id="addTagBtn">+ 新增分类标签</button>
 
         <div class="sidebar-footer">
-          <button id="settingsBtn" class="sidebar-settings-btn" title="设置 (⌘,)">
+          <button
+            id="settingsBtn"
+            class="sidebar-settings-btn"
+            title="设置 (⌘,)"
+          >
             <span class="toolbar-dots" aria-hidden="true">
               <span></span>
               <span></span>
@@ -4132,60 +4262,216 @@
             <span class="sidebar-settings-label">系统</span>
           </button>
         </div>
-        </aside>
+      </aside>
 
-        <main>
-          <header class="app-header">
-            <button type="button" class="chrome-toggle-btn" id="sidebarToggleBtn" aria-pressed="false" title="收起侧栏 ( ] )">
-              <span class="chrome-toggle-label" id="sidebarToggleLabel">侧栏</span>
+      <main>
+        <header class="app-header">
+          <button
+            type="button"
+            class="chrome-toggle-btn"
+            id="sidebarToggleBtn"
+            aria-pressed="false"
+            title="收起侧栏 ( ] )"
+          >
+            <span class="chrome-toggle-label" id="sidebarToggleLabel"
+              >侧栏</span
+            >
+          </button>
+          <div class="search-wrapper">
+            <input
+              type="text"
+              id="searchInput"
+              class="search-input"
+              placeholder="搜索提示词 · 直接打字 · ⌘K"
+              aria-label="搜索提示词"
+            />
+            <button
+              type="button"
+              id="searchClearBtn"
+              class="search-clear-btn"
+              hidden
+              aria-label="清空搜索"
+              title="清空搜索 (⌘⌫)"
+            >
+              ×
             </button>
-            <div class="search-wrapper">
-              <input type="text" id="searchInput" class="search-input" placeholder="搜索提示词 · 直接打字 · ⌘K" aria-label="搜索提示词" />
-              <button type="button" id="searchClearBtn" class="search-clear-btn" hidden aria-label="清空搜索" title="清空搜索 (⌘⌫)">×</button>
-            </div>
-            <button type="button" class="chrome-toggle-btn preview-toggle-btn" id="previewToggleBtn" aria-pressed="false" title="收起预览 ( [ )">
-              <span class="preview-toggle-label">预览</span>
-            </button>
-            <button type="button" class="chrome-toggle-btn header-add-btn" id="headerAddBtn" title="新增提示词 (⌘N)">
-              <span class="chrome-toggle-label">新增</span>
-            </button>
-            <button type="button" class="chrome-toggle-btn header-settings-btn" id="headerSettingsBtn" title="系统菜单 (⌘,)" aria-haspopup="menu" aria-expanded="false">
-              <span class="chrome-toggle-label">系统</span>
-            </button>
-          </header>
+          </div>
+          <button
+            type="button"
+            class="chrome-toggle-btn preview-toggle-btn"
+            id="previewToggleBtn"
+            aria-pressed="false"
+            title="收起预览 ( [ )"
+          >
+            <span class="preview-toggle-label">预览</span>
+          </button>
+          <button
+            type="button"
+            class="chrome-toggle-btn header-add-btn"
+            id="headerAddBtn"
+            title="新增提示词 (⌘N)"
+          >
+            <span class="chrome-toggle-label">新增</span>
+          </button>
+          <button
+            type="button"
+            class="chrome-toggle-btn header-settings-btn"
+            id="headerSettingsBtn"
+            title="系统菜单 (⌘,)"
+            aria-haspopup="menu"
+            aria-expanded="false"
+          >
+            <span class="chrome-toggle-label">系统</span>
+          </button>
+        </header>
 
-          <div class="content-wrap">
+        <div class="content-wrap">
           <section class="list-panel">
             <div class="list-scroll" id="cardGrid"></div>
           </section>
-          <section class="preview-panel" id="previewPanel" aria-label="提示词预览">
+          <section
+            class="preview-panel"
+            id="previewPanel"
+            aria-label="提示词预览"
+          >
             <div class="preview-header">
               <div class="preview-topbar">
-                <div class="preview-actions-inline" role="toolbar" aria-label="提示词操作">
-                  <button type="button" class="ghost-btn preview-action-icon-btn" id="previewShare" aria-label="分享" title="分享" disabled>
-                    <span class="preview-action-icon" aria-hidden="true"><svg class="preview-action-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg></span>
+                <div
+                  class="preview-actions-inline"
+                  role="toolbar"
+                  aria-label="提示词操作"
+                >
+                  <button
+                    type="button"
+                    class="ghost-btn preview-action-icon-btn"
+                    id="previewShare"
+                    aria-label="分享"
+                    title="分享"
+                    disabled
+                  >
+                    <span class="preview-action-icon" aria-hidden="true"
+                      ><svg
+                        class="preview-action-svg"
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 3v12" />
+                        <path d="m17 8-5-5-5 5" />
+                        <path
+                          d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                        /></svg
+                    ></span>
                     <span class="preview-action-label sr-only">分享</span>
                   </button>
-                  <button type="button" class="ghost-btn preview-action-icon-btn" id="previewPin" aria-label="置顶" title="置顶 (P)" aria-pressed="false">
-                    <span class="preview-action-icon" aria-hidden="true"><svg class="preview-action-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>
+                  <button
+                    type="button"
+                    class="ghost-btn preview-action-icon-btn"
+                    id="previewPin"
+                    aria-label="置顶"
+                    title="置顶 (P)"
+                    aria-pressed="false"
+                  >
+                    <span class="preview-action-icon" aria-hidden="true"
+                      ><svg
+                        class="preview-action-svg"
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 17v5" />
+                        <path
+                          d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+                        /></svg
+                    ></span>
                     <span class="preview-action-label sr-only">置顶</span>
                   </button>
-                  <button type="button" class="ghost-btn preview-action-icon-btn" id="previewEdit" aria-label="编辑" title="编辑 (E)">
-                    <span class="preview-action-icon" aria-hidden="true"><svg class="preview-action-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg></span>
+                  <button
+                    type="button"
+                    class="ghost-btn preview-action-icon-btn"
+                    id="previewEdit"
+                    aria-label="编辑"
+                    title="编辑 (E)"
+                  >
+                    <span class="preview-action-icon" aria-hidden="true"
+                      ><svg
+                        class="preview-action-svg"
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+                        /></svg
+                    ></span>
                     <span class="preview-action-label sr-only">编辑</span>
                   </button>
-                  <button type="button" class="ghost-btn danger-btn preview-action-icon-btn" id="previewDelete" aria-label="删除" title="删除 (Delete/⌫，可撤销)">
-                    <span class="preview-action-icon" aria-hidden="true"><svg class="preview-action-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></span>
+                  <button
+                    type="button"
+                    class="ghost-btn danger-btn preview-action-icon-btn"
+                    id="previewDelete"
+                    aria-label="删除"
+                    title="删除 (Delete/⌫，可撤销)"
+                  >
+                    <span class="preview-action-icon" aria-hidden="true"
+                      ><svg
+                        class="preview-action-svg"
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                        <line x1="10" y1="11" x2="10" y2="17" />
+                        <line x1="14" y1="11" x2="14" y2="17" /></svg
+                    ></span>
                     <span class="preview-action-label sr-only">删除</span>
                   </button>
                 </div>
               </div>
               <div class="preview-title" id="previewTitle">选择一条提示词</div>
             </div>
-            <div class="preview-body" id="previewBody">单击复制到剪贴板；直接打字搜索；右键或 E/P/Delete(⌫) 管理。</div>
-            <div class="preview-usage-stats" id="previewUsageStats">暂无使用记录</div>
+            <div class="preview-body" id="previewBody">
+              单击复制到剪贴板；直接打字搜索；右键或 E/P/Delete(⌫) 管理。
+            </div>
+            <div class="preview-usage-stats" id="previewUsageStats">
+              暂无使用记录
+            </div>
             <div class="preview-primary-actions">
-              <button type="button" class="accent-btn preview-use-btn" id="previewUse" title="复制到剪贴板" disabled>复制内容</button>
+              <button
+                type="button"
+                class="accent-btn preview-use-btn"
+                id="previewUse"
+                title="复制到剪贴板"
+                disabled
+              >
+                复制内容
+              </button>
             </div>
           </section>
         </div>
@@ -4216,12 +4502,18 @@
 
           <div class="modal-field">
             <label for="newContent">内容</label>
-            <textarea id="newContent" class="modal-textarea" rows="6"></textarea>
+            <textarea
+              id="newContent"
+              class="modal-textarea"
+              rows="6"
+            ></textarea>
           </div>
 
           <div class="prompt-modal-actions">
             <button id="cancelBtn" class="ghost-btn">取消</button>
-            <button id="saveBtn" title="保存 (⌘/Ctrl+Enter)" class="accent-btn">保存</button>
+            <button id="saveBtn" title="保存 (⌘/Ctrl+Enter)" class="accent-btn">
+              保存
+            </button>
           </div>
         </div>
       </div>
@@ -4260,7 +4552,11 @@
         </div>
         <div class="rename-body">
           <label for="renameTagInput">新的分类名称</label>
-          <input type="text" id="renameTagInput" placeholder="请输入新的分类名称" />
+          <input
+            type="text"
+            id="renameTagInput"
+            placeholder="请输入新的分类名称"
+          />
           <div id="renameTagError" class="rename-error"></div>
         </div>
         <div class="hidden-tags-actions rename-actions">
@@ -4286,26 +4582,48 @@
             <div class="system-card">
               <div class="webdav-field">
                 <label class="webdav-label">服务器地址</label>
-                <input type="text" id="webdavUrl" class="webdav-input" placeholder="https://example.com/dav/" />
+                <input
+                  type="text"
+                  id="webdavUrl"
+                  class="webdav-input"
+                  placeholder="https://example.com/dav/"
+                />
               </div>
 
               <div class="system-grid-two">
                 <div class="webdav-field">
                   <label class="webdav-label">用户名</label>
-                  <input type="text" id="webdavUsername" class="webdav-input" placeholder="用户名" />
+                  <input
+                    type="text"
+                    id="webdavUsername"
+                    class="webdav-input"
+                    placeholder="用户名"
+                  />
                 </div>
                 <div class="webdav-field">
                   <label class="webdav-label">密码</label>
-                  <input type="password" id="webdavPassword" class="webdav-input" placeholder="密码" />
+                  <input
+                    type="password"
+                    id="webdavPassword"
+                    class="webdav-input"
+                    placeholder="密码"
+                  />
                 </div>
               </div>
 
               <div class="webdav-field">
                 <label class="webdav-label">备份目录</label>
-                <input type="text" id="webdavDir" class="webdav-input" placeholder="prompt-box-backups" />
+                <input
+                  type="text"
+                  id="webdavDir"
+                  class="webdav-input"
+                  placeholder="prompt-box-backups"
+                />
               </div>
 
-              <button id="webdavTest" class="ghost-btn system-link-button">测试连接</button>
+              <button id="webdavTest" class="ghost-btn system-link-button">
+                测试连接
+              </button>
             </div>
           </section>
 
@@ -4325,7 +4643,14 @@
 
               <div class="webdav-field" id="intervalField">
                 <label class="webdav-label">备份频率（天）</label>
-                <input type="number" id="webdavIntervalDays" class="webdav-input" min="1" max="30" value="3" />
+                <input
+                  type="number"
+                  id="webdavIntervalDays"
+                  class="webdav-input"
+                  min="1"
+                  max="30"
+                  value="3"
+                />
               </div>
             </div>
           </section>
@@ -4334,12 +4659,32 @@
             <div class="system-section-title">手动操作</div>
 
             <div class="system-stack">
-              <button id="webdavBackup" class="accent-btn system-primary-button">立即备份</button>
+              <button
+                id="webdavBackup"
+                class="accent-btn system-primary-button"
+              >
+                立即备份
+              </button>
 
               <div class="system-actions-three">
-                <button id="webdavRestore" class="ghost-btn system-secondary-button">从云端恢复</button>
-                <button id="webdavCopyConfig" class="ghost-btn system-secondary-button">复制配置</button>
-                <button id="webdavPasteConfig" class="ghost-btn system-secondary-button">粘贴配置</button>
+                <button
+                  id="webdavRestore"
+                  class="ghost-btn system-secondary-button"
+                >
+                  从云端恢复
+                </button>
+                <button
+                  id="webdavCopyConfig"
+                  class="ghost-btn system-secondary-button"
+                >
+                  复制配置
+                </button>
+                <button
+                  id="webdavPasteConfig"
+                  class="ghost-btn system-secondary-button"
+                >
+                  粘贴配置
+                </button>
               </div>
             </div>
 
@@ -4348,11 +4693,20 @@
                 <div class="system-section-title">云端备份列表</div>
                 <div class="system-row-hint">
                   <div class="system-inline-note">选择一项后恢复</div>
-                  <button id="webdavRefresh" class="ghost-btn system-refresh-button">刷新</button>
+                  <button
+                    id="webdavRefresh"
+                    class="ghost-btn system-refresh-button"
+                  >
+                    刷新
+                  </button>
                 </div>
               </div>
 
-              <select id="webdavBackupList" class="webdav-input system-select" size="6"></select>
+              <select
+                id="webdavBackupList"
+                class="webdav-input system-select"
+                size="6"
+              ></select>
             </div>
           </section>
 
@@ -4370,9 +4724,17 @@
         </div>
 
         <div class="system-modal-body">
-          <p class="system-modal-subtitle">将以下配置复制到其他设备，即可快速完成同步设置。</p>
-          <textarea id="copyConfigText" class="modal-textarea system-textarea" readonly></textarea>
-          <button id="copyConfigBtn" class="accent-btn system-primary-button">复制到剪贴板</button>
+          <p class="system-modal-subtitle">
+            将以下配置复制到其他设备，即可快速完成同步设置。
+          </p>
+          <textarea
+            id="copyConfigText"
+            class="modal-textarea system-textarea"
+            readonly
+          ></textarea>
+          <button id="copyConfigBtn" class="accent-btn system-primary-button">
+            复制到剪贴板
+          </button>
         </div>
       </div>
     </div>
@@ -4385,7 +4747,9 @@
         </div>
 
         <div class="system-modal-body">
-          <p class="system-modal-subtitle">粘贴从其他设备复制的配置，快速完成同步设置。</p>
+          <p class="system-modal-subtitle">
+            粘贴从其他设备复制的配置，快速完成同步设置。
+          </p>
           <textarea
             id="pasteConfigText"
             class="modal-textarea system-textarea"
@@ -4393,35 +4757,138 @@
           ></textarea>
 
           <div class="system-config-actions">
-            <button id="pasteConfigCancel" class="ghost-btn system-secondary-button">取消</button>
-            <button id="pasteConfigApply" class="accent-btn system-secondary-button">应用配置</button>
+            <button
+              id="pasteConfigCancel"
+              class="ghost-btn system-secondary-button"
+            >
+              取消
+            </button>
+            <button
+              id="pasteConfigApply"
+              class="accent-btn system-secondary-button"
+            >
+              应用配置
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-        <div id="moreMenu" class="header-menu system-menu" role="menu" aria-label="系统菜单" hidden>
+    <div id="permissionOverlay">
+      <div class="system-modal-card system-modal-card--compact">
+        <div class="system-modal-header">
+          <h2 class="system-modal-title">权限状态</h2>
+          <button id="permissionClose" class="hidden-tags-close">✕</button>
+        </div>
+
+        <div class="system-modal-body">
+          <p class="system-modal-subtitle">自动粘贴所需的 macOS 系统权限</p>
+
+          <div class="permission-row">
+            <div class="permission-info">
+              <div class="permission-name">辅助功能</div>
+              <div class="permission-desc">发送键盘操作（Cmd+V 自动粘贴）</div>
+            </div>
+            <span id="permissionA11yBadge" class="permission-badge"
+              >检测中…</span
+            >
+          </div>
+          <button
+            id="permissionA11yBtn"
+            class="ghost-btn system-secondary-button permission-action"
+          >
+            去系统设置开启
+          </button>
+
+          <div class="permission-row">
+            <div class="permission-info">
+              <div class="permission-name">自动化 · System Events</div>
+              <div class="permission-desc">识别并激活目标应用</div>
+            </div>
+            <span id="permissionAutoBadge" class="permission-badge"
+              >检测中…</span
+            >
+          </div>
+          <button
+            id="permissionAutoBtn"
+            class="ghost-btn system-secondary-button permission-action"
+          >
+            去系统设置开启
+          </button>
+
+          <div id="permissionIdentity" class="permission-identity"></div>
+
+          <div class="system-config-actions">
+            <button
+              id="permissionRefresh"
+              class="ghost-btn system-secondary-button"
+            >
+              重新检测
+            </button>
+            <button
+              id="permissionDone"
+              class="accent-btn system-primary-button"
+            >
+              完成
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="moreMenu"
+      class="header-menu system-menu"
+      role="menu"
+      aria-label="系统菜单"
+      hidden
+    >
       <div class="menu-section-title">数据</div>
       <button class="menu-item" id="menuImport" role="menuitem">导入</button>
       <button class="menu-item" id="menuExport" role="menuitem">导出</button>
-      <button class="menu-item" id="menuSafetyRestore" role="menuitem">恢复安全快照</button>
-      <button class="menu-item" id="menuWebdav" role="menuitem">同步与备份</button>
+      <button class="menu-item" id="menuSafetyRestore" role="menuitem">
+        恢复安全快照
+      </button>
+      <button class="menu-item" id="menuWebdav" role="menuitem">
+        同步与备份
+      </button>
       <div class="menu-divider"></div>
       <div class="menu-section-title">外观</div>
-      <button class="menu-item" id="menuTheme" type="button" role="menuitem">主题：跟随系统</button>
-      <button class="menu-item" id="menuOpenAtLogin" type="button" role="menuitem">登录时启动：关闭</button>
-      <button class="menu-item" id="menuHotkey" type="button" role="menuitem">全局快捷键：Alt+E</button>
+      <button class="menu-item" id="menuTheme" type="button" role="menuitem">
+        主题：跟随系统
+      </button>
+      <button
+        class="menu-item"
+        id="menuOpenAtLogin"
+        type="button"
+        role="menuitem"
+      >
+        登录时启动：关闭
+      </button>
+      <button class="menu-item" id="menuHotkey" type="button" role="menuitem">
+        全局快捷键：Alt+E
+      </button>
       <div class="menu-divider"></div>
       <div class="menu-section-title">帮助</div>
-      <button class="menu-item" id="menuShortcuts" role="menuitem">快捷键说明</button>
-      <button class="menu-item" id="menuPermissions" role="menuitem">权限说明</button>
-      <button class="menu-item" id="menuAbout" role="menuitem">关于 PromptBox</button>
+      <button class="menu-item" id="menuShortcuts" role="menuitem">
+        快捷键说明
+      </button>
+      <button class="menu-item" id="menuPermissions" role="menuitem">
+        权限状态
+      </button>
+      <button class="menu-item" id="menuAbout" role="menuitem">
+        关于 PromptBox
+      </button>
       <div class="menu-divider"></div>
       <div class="menu-section-title">整理</div>
-      <button class="menu-item" id="menuHiddenTags" role="menuitem">隐藏分类</button>
+      <button class="menu-item" id="menuHiddenTags" role="menuitem">
+        隐藏分类
+      </button>
     </div>
 
-<div id="toast" role="status" aria-live="polite" aria-atomic="true">已拷贝到剪贴板</div>
+    <div id="toast" role="status" aria-live="polite" aria-atomic="true">
+      已拷贝到剪贴板
+    </div>
 
     <div id="contextMenu" class="context-menu">
       <div class="context-menu-item" data-action="pin">

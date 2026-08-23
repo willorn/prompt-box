@@ -36,3 +36,7 @@ coverage/
 # Application data (development)
 # 注意：生产环境的数据存储在用户目录，不会被提交
 prompts.json
+
+# Rust / Tauri
+tauri/target/
+tauri/gen/schemas/

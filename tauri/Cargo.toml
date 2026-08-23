@@ -1,0 +1,38 @@
+[package]
+name = "prompt-box-tauri"
+version = "0.3.0"
+description = "PromptBox - 桌面提示词快速调用工具（Tauri PoC）"
+authors = ["PromptBox"]
+edition = "2021"
+
+# 阶段 0 PoC：验证三件高风险能力
+# 1) renderer.js 在 WKWebView 的真实表现（零改动迁移）
+# 2) 全屏应用上方唤起 + 失焦隐藏（tao 窗口能力）
+# 3) 完整粘贴链（lsappinfo → pid 激活 → osascript keystroke → 剪贴板恢复）
+
+[[bin]]
+name = "prompt-box"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-autostart = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wait-timeout = "0.2"
+tokio = { version = "1", features = ["time"] }
+# 阶段 4：WebDAV（对齐 Electron 的 webdav npm 包语义）
+reqwest_dav = "0.3"
+chrono = "0.4"
+# 权限：AXIsProcessTrustedWithOptions 需要 CFDictionary 构造 options
+core-foundation = "0.9"
+
+[profile.dev]
+# 首次编译已慢，链接期再省一点
+debug = 1

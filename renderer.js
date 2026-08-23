@@ -51,11 +51,19 @@ async function pauseBlurHide(ms = 8000) {
 
 async function safeAlert(message) {
   await pauseBlurHide(10000);
+  if (electronAPI?.showAlertDialog) {
+    // WKWebView 不实现 JS alert 面板（Tauri 桥接提供原生对话框）
+    await electronAPI.showAlertDialog(String(message ?? ""));
+    return;
+  }
   alert(String(message ?? ""));
 }
 
 async function safeConfirm(message) {
   await pauseBlurHide(10000);
+  if (electronAPI?.showConfirmDialog) {
+    return electronAPI.showConfirmDialog(String(message ?? ""));
+  }
   return confirm(String(message ?? ""));
 }
 
@@ -119,6 +127,14 @@ async function copyPromptForUse(text) {
   const value = String(text ?? "");
   if (!value) {
     return { copied: false, pasted: false };
+  }
+  // 主链路：写剪贴板 → 隐藏窗口 → 激活原应用 → Cmd+V → 延时恢复剪贴板
+  try {
+    if (electronAPI?.copyPastePrompt) {
+      return await electronAPI.copyPastePrompt(value);
+    }
+  } catch (err) {
+    console.error("主进程复制粘贴失败，回退为仅复制", err);
   }
   const copied = await copyText(value);
   return { copied, pasted: false };
@@ -239,8 +255,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if ("inert" in sidebar) sidebar.inert = sidebarCollapsed;
     }
     if (sidebarToggleBtn) {
-      sidebarToggleBtn.setAttribute("aria-pressed", sidebarCollapsed ? "true" : "false");
-      sidebarToggleBtn.title = sidebarCollapsed ? "展开侧栏 ( ] )" : "收起侧栏 ( ] )";
+      sidebarToggleBtn.setAttribute(
+        "aria-pressed",
+        sidebarCollapsed ? "true" : "false",
+      );
+      sidebarToggleBtn.title = sidebarCollapsed
+        ? "展开侧栏 ( ] )"
+        : "收起侧栏 ( ] )";
       sidebarToggleBtn.setAttribute(
         "aria-label",
         sidebarCollapsed ? "展开侧栏" : "收起侧栏",
@@ -250,7 +271,9 @@ document.addEventListener("DOMContentLoaded", () => {
       sidebarToggleLabel.textContent = "侧栏";
     }
     if (sidebarCollapsed) {
-      try { setSystemMenuOpen(false); } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     }
   }
 
@@ -263,7 +286,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadThemeMode() {
     try {
       const mode = window.localStorage.getItem(THEME_MODE_KEY) || "system";
-      return mode === "light" || mode === "dark" || mode === "system" ? mode : "system";
+      return mode === "light" || mode === "dark" || mode === "system"
+        ? mode
+        : "system";
     } catch {
       return "system";
     }
@@ -277,7 +302,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getSystemPrefersDark() {
     try {
-      return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches === true;
+      return (
+        window.matchMedia?.("(prefers-color-scheme: dark)")?.matches === true
+      );
     } catch {
       return false;
     }
@@ -302,7 +329,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.classList.toggle("theme-dark", dark);
     if (menuTheme) {
       menuTheme.textContent = `主题：${themeModeLabel(mode)}`;
-      menuTheme.setAttribute("aria-label", `切换主题，当前：${themeModeLabel(mode)}`);
+      menuTheme.setAttribute(
+        "aria-label",
+        `切换主题，当前：${themeModeLabel(mode)}`,
+      );
       menuTheme.title = "点击切换：跟随系统 → 浅色 → 深色";
     }
   }
@@ -335,7 +365,6 @@ document.addEventListener("DOMContentLoaded", () => {
     menuOpenAtLogin.dataset.enabled = enabled ? "1" : "0";
   }
 
-  
   function formatHotkeyLabel(info) {
     const active = String(info?.active || "Alt+E");
     if (info?.isFallback) {
@@ -387,7 +416,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setupSystemThemeListener() {
     try {
-      systemThemeMql = window.matchMedia?.("(prefers-color-scheme: dark)") || null;
+      systemThemeMql =
+        window.matchMedia?.("(prefers-color-scheme: dark)") || null;
       if (!systemThemeMql) return;
       const onChange = () => {
         if (themeMode === "system") applyThemeMode("system");
@@ -409,14 +439,22 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyPreviewCollapsed() {
     document.body.classList.toggle("preview-collapsed", previewCollapsed);
     if (previewPanel) {
-      previewPanel.setAttribute("aria-hidden", previewCollapsed ? "true" : "false");
+      previewPanel.setAttribute(
+        "aria-hidden",
+        previewCollapsed ? "true" : "false",
+      );
       if ("inert" in previewPanel) {
         previewPanel.inert = previewCollapsed;
       }
     }
     if (previewToggleBtn) {
-      previewToggleBtn.setAttribute("aria-pressed", previewCollapsed ? "true" : "false");
-      previewToggleBtn.title = previewCollapsed ? "展开预览 ( [ )" : "收起预览 ( [ )";
+      previewToggleBtn.setAttribute(
+        "aria-pressed",
+        previewCollapsed ? "true" : "false",
+      );
+      previewToggleBtn.title = previewCollapsed
+        ? "展开预览 ( [ )"
+        : "收起预览 ( [ )";
       previewToggleBtn.setAttribute(
         "aria-label",
         previewCollapsed ? "展开预览" : "收起预览",
@@ -494,6 +532,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const pasteConfigText = document.getElementById("pasteConfigText");
   const pasteConfigApply = document.getElementById("pasteConfigApply");
 
+  // Permission Modal Elements（成熟软件风格的权限状态面板）
+  const permissionOverlay = document.getElementById("permissionOverlay");
+  const permissionClose = document.getElementById("permissionClose");
+  const permissionA11yBadge = document.getElementById("permissionA11yBadge");
+  const permissionA11yBtn = document.getElementById("permissionA11yBtn");
+  const permissionAutoBadge = document.getElementById("permissionAutoBadge");
+  const permissionAutoBtn = document.getElementById("permissionAutoBtn");
+  const permissionIdentity = document.getElementById("permissionIdentity");
+  const permissionRefresh = document.getElementById("permissionRefresh");
+  const permissionDone = document.getElementById("permissionDone");
+
   let allPrompts = [];
   let hiddenTags = [];
   let editingIndex = null;
@@ -557,7 +606,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  async function maybeGuideAccessibility(diagnostics, { openSettings = false } = {}) {
+  async function maybeGuideAccessibility(
+    diagnostics,
+    { openSettings = false } = {},
+  ) {
     if (!diagnostics || diagnostics.accessibilityTrusted !== false) return;
     if (openSettings && shouldOpenA11ySettings(diagnostics)) {
       void openAccessibilitySettings();
@@ -569,9 +621,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const arr = Array.isArray(list) ? list : [list];
     return Array.from(
       new Set(
-        arr
-          .map((tag) => normalizeTag(tag))
-          .filter((tag) => tag.length > 0),
+        arr.map((tag) => normalizeTag(tag)).filter((tag) => tag.length > 0),
       ),
     );
   }
@@ -648,7 +698,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeRenameTagModal() {
     if (!renameTagOverlay) return;
     renameTagOverlay.style.display = "none";
-    try { syncBlurHideLock(); } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
     renameTagOriginal = null;
     setRenameTagError("");
   }
@@ -760,7 +812,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       const latest = snaps[0]?.at
-        ? String(snaps[0].at).replace("T", " ").replace(/\.\d+Z$/, "")
+        ? String(snaps[0].at)
+            .replace("T", " ")
+            .replace(/\.\d+Z$/, "")
         : "";
       menuSafetyRestore.textContent = latest
         ? `${base}（${count} · ${latest.slice(0, 16)}）`
@@ -776,7 +830,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getSystemMenuAnchor() {
     // 侧栏收起时侧栏按钮不可点；优先顶栏「系统」。
-    if (document.body.classList.contains("sidebar-collapsed") && headerSettingsBtn) {
+    if (
+      document.body.classList.contains("sidebar-collapsed") &&
+      headerSettingsBtn
+    ) {
       return headerSettingsBtn;
     }
     if (settingsBtn && settingsBtn.offsetParent !== null) return settingsBtn;
@@ -839,7 +896,9 @@ document.addEventListener("DOMContentLoaded", () => {
       moreMenu.style.visibility = "";
     }
     syncSystemMenuTriggers(next);
-    try { syncBlurHideLock(); } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
     return next;
   }
 
@@ -866,8 +925,16 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("click", (e) => {
     if (!moreMenu || !isSystemMenuOpen()) return;
     if (e.target && moreMenu.contains(e.target)) return;
-    if (settingsBtn && (e.target === settingsBtn || settingsBtn.contains(e.target))) return;
-    if (headerSettingsBtn && (e.target === headerSettingsBtn || headerSettingsBtn.contains(e.target))) return;
+    if (
+      settingsBtn &&
+      (e.target === settingsBtn || settingsBtn.contains(e.target))
+    )
+      return;
+    if (
+      headerSettingsBtn &&
+      (e.target === headerSettingsBtn || headerSettingsBtn.contains(e.target))
+    )
+      return;
     setSystemMenuOpen(false);
   });
 
@@ -951,10 +1018,100 @@ document.addEventListener("DOMContentLoaded", () => {
     syncBlurHideLock();
   }
 
+  // —— 权限状态面板（跟成熟软件一样：可视状态 + 主动检测 + 一键去授权）——
+
+  function setPermissionBadge(el, state) {
+    if (!el) return;
+    el.classList.remove("is-ok", "is-bad");
+    if (state === "ok") {
+      el.textContent = "已授权";
+      el.classList.add("is-ok");
+    } else if (state === "bad") {
+      el.textContent = "未授权";
+      el.classList.add("is-bad");
+    } else if (state === "denied") {
+      el.textContent = "已拒绝";
+      el.classList.add("is-bad");
+    } else {
+      el.textContent = "未知";
+    }
+  }
+
+  let permissionProbeInFlight = false;
+
+  async function refreshPermissionStatus() {
+    if (permissionProbeInFlight) return;
+    permissionProbeInFlight = true;
+    try {
+      // 辅助功能：AXIsProcessTrusted 纯读取，无弹窗
+      setPermissionBadge(permissionA11yBadge, "pending");
+      setPermissionBadge(permissionAutoBadge, "pending");
+      let diagnostics = null;
+      try {
+        diagnostics = await electronAPI?.getPermissionDiagnostics?.();
+      } catch {}
+      const a11yOk = diagnostics?.accessibilityTrusted === true;
+      setPermissionBadge(permissionA11yBadge, a11yOk ? "ok" : "bad");
+      if (permissionA11yBtn) {
+        permissionA11yBtn.classList.toggle("is-visible", !a11yOk);
+      }
+      if (permissionIdentity) {
+        const name = diagnostics?.targetName || "PromptBox";
+        const path = diagnostics?.targetPath || "";
+        permissionIdentity.textContent = diagnostics?.isPackaged
+          ? `授权身份：${name}`
+          : `开发模式授权身份：${name}（请勿勾选给 "PromptBox"，重装后先移除旧条目再重新允许）\n可执行文件：${path}`;
+      }
+
+      // 自动化：探测一次 System Events（未决状态会触发系统授权弹窗 = 主动请求）
+      if (electronAPI?.probeAutomationPermission) {
+        try {
+          const auto = await electronAPI.probeAutomationPermission();
+          const state = auto?.granted
+            ? "ok"
+            : auto?.denied
+              ? "denied"
+              : "pending";
+          setPermissionBadge(permissionAutoBadge, state);
+          if (permissionAutoBtn) {
+            permissionAutoBtn.classList.toggle(
+              "is-visible",
+              auto?.granted !== true,
+            );
+          }
+        } catch {
+          setPermissionBadge(permissionAutoBadge, "pending");
+        }
+      } else {
+        // Electron 版无探测命令：保持未知（用户可在系统设置自查）
+        setPermissionBadge(permissionAutoBadge, "pending");
+      }
+    } finally {
+      permissionProbeInFlight = false;
+    }
+  }
+
+  function openPermissionModal() {
+    if (!permissionOverlay) return;
+    permissionOverlay.style.display = "flex";
+    syncBlurHideLock();
+    void refreshPermissionStatus();
+  }
+
+  function closePermissionModal() {
+    if (!permissionOverlay) return;
+    permissionOverlay.style.display = "none";
+    try {
+      syncBlurHideLock();
+    } catch {}
+  }
+
   function closeWebdavModal() {
     if (!webdavOverlay) return;
     webdavOverlay.style.display = "none";
-    try { syncBlurHideLock(); } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
   }
 
   function openHiddenTagsModal() {
@@ -967,7 +1124,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeHiddenTagsModal() {
     if (!hiddenTagsOverlay) return;
     hiddenTagsOverlay.style.display = "none";
-    try { syncBlurHideLock(); } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
   }
 
   function renderHiddenTagsList() {
@@ -1011,7 +1170,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function saveHiddenTagsSelection() {
     if (!hiddenTagsList) return;
-    const checkboxes = hiddenTagsList.querySelectorAll('input[type="checkbox"]');
+    const checkboxes = hiddenTagsList.querySelectorAll(
+      'input[type="checkbox"]',
+    );
     const selected = Array.from(checkboxes)
       .filter((cb) => cb.checked)
       .map((cb) => cb.value);
@@ -1126,7 +1287,10 @@ document.addEventListener("DOMContentLoaded", () => {
     pendingUndo = null;
 
     if (undo.type === "delete") {
-      const index = Math.max(0, Math.min(Number(undo.index) || 0, allPrompts.length));
+      const index = Math.max(
+        0,
+        Math.min(Number(undo.index) || 0, allPrompts.length),
+      );
       const item = normalizePrompt(undo.item);
       if (!item) return false;
       const previous = clonePromptList(allPrompts);
@@ -1195,7 +1359,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function nextDuplicateName(baseName) {
     const root = String(baseName || "未命名").trim() || "未命名";
-    const existing = new Set(allPrompts.map((p) => String(p?.name || "").trim()));
+    const existing = new Set(
+      allPrompts.map((p) => String(p?.name || "").trim()),
+    );
     let candidate = `${root} 副本`;
     if (!existing.has(candidate)) return candidate;
     let n = 2;
@@ -1255,7 +1421,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function deletePromptAtIndex(index, { confirmMessage = false } = {}) {
-    if (!Number.isInteger(index) || index < 0 || !allPrompts[index]) return false;
+    if (!Number.isInteger(index) || index < 0 || !allPrompts[index])
+      return false;
     const item = allPrompts[index];
     // 默认软删除 + toast 撤销；需要二次确认时再弹（避免 confirm 触发失焦隐藏）。
     if (confirmMessage) {
@@ -1329,12 +1496,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const menuH = Math.max(contextMenu.offsetHeight || 260, 160);
     let x = Number(e?.clientX) || 0;
     let y = Number(e?.clientY) || 0;
-    x = Math.min(Math.max(pad, x), Math.max(pad, window.innerWidth - menuW - pad));
-    y = Math.min(Math.max(pad, y), Math.max(pad, window.innerHeight - menuH - pad));
+    x = Math.min(
+      Math.max(pad, x),
+      Math.max(pad, window.innerWidth - menuW - pad),
+    );
+    y = Math.min(
+      Math.max(pad, y),
+      Math.max(pad, window.innerHeight - menuH - pad),
+    );
     contextMenu.style.left = `${x}px`;
     contextMenu.style.top = `${y}px`;
     contextMenu.style.visibility = "";
-    try { syncBlurHideLock(); } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
   }
 
   function hideContextMenu() {
@@ -1342,7 +1517,9 @@ document.addEventListener("DOMContentLoaded", () => {
       contextMenu.style.display = "none";
     }
     contextMenuTargetIndex = null;
-    try { syncBlurHideLock(); } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
   }
 
   // 点击其他地方关闭右键菜单
@@ -1416,11 +1593,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // 已有未保存草稿时不切换条目/重置表单，避免管理动作冲掉编辑。
     if (isDirtyPromptModalOpen()) {
       if (editingIndex === index) {
-        try { focusModalPrimaryField(); } catch {}
+        try {
+          focusModalPrimaryField();
+        } catch {}
         return;
       }
       showToast("有未保存的编辑，请先保存或关闭", { duration: 2200 });
-      try { focusModalPrimaryField(); } catch {}
+      try {
+        focusModalPrimaryField();
+      } catch {}
       return;
     }
     editingIndex = index;
@@ -1499,7 +1680,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (previewUse) previewUse.disabled = false;
     if (previewShare) previewShare.disabled = false;
     if (previewPin) {
-      setPreviewActionButtonLabel(previewPin, item.isPinned ? "取消置顶" : "置顶", "(P)");
+      setPreviewActionButtonLabel(
+        previewPin,
+        item.isPinned ? "取消置顶" : "置顶",
+        "(P)",
+      );
       previewPin.disabled = false;
     }
     if (previewEdit) {
@@ -1553,7 +1738,8 @@ document.addEventListener("DOMContentLoaded", () => {
         typeof document.elementFromPoint === "function"
           ? document.elementFromPoint(clientX, clientY)
           : null;
-      const card = el && typeof el.closest === "function" ? el.closest(".card") : null;
+      const card =
+        el && typeof el.closest === "function" ? el.closest(".card") : null;
       if (!card) return;
       const index = Number(card.dataset.originalIndex);
       if (!Number.isFinite(index)) return;
@@ -1587,7 +1773,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setActiveCardElement(nextCard) {
-    if (lastActiveCardEl && lastActiveCardEl !== nextCard && lastActiveCardEl.isConnected) {
+    if (
+      lastActiveCardEl &&
+      lastActiveCardEl !== nextCard &&
+      lastActiveCardEl.isConnected
+    ) {
       lastActiveCardEl.classList.remove("active-card");
       lastActiveCardEl.setAttribute("aria-selected", "false");
     }
@@ -1617,7 +1807,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function selectCard(originalIndex, fromHover = false, options = {}) {
-    if (!Number.isInteger(originalIndex) || originalIndex < 0 || !allPrompts[originalIndex]) {
+    if (
+      !Number.isInteger(originalIndex) ||
+      originalIndex < 0 ||
+      !allPrompts[originalIndex]
+    ) {
       if (selectedIndex !== null) {
         selectedIndex = null;
         setActiveCardElement(null);
@@ -1641,7 +1835,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (selectedIndex === originalIndex && fromHover) return;
     selectedIndex = originalIndex;
     const nextCard =
-      (cardGrid && cardGrid.querySelector(`.card[data-original-index="${originalIndex}"]`)) ||
+      (cardGrid &&
+        cardGrid.querySelector(
+          `.card[data-original-index="${originalIndex}"]`,
+        )) ||
       document.querySelector(`.card[data-original-index="${originalIndex}"]`) ||
       null;
     setActiveCardElement(nextCard);
@@ -1712,8 +1909,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let target = null;
     if (selectedIndex !== null) {
       target =
-        cards.find((card) => Number(card.dataset.originalIndex) === selectedIndex) ||
-        null;
+        cards.find(
+          (card) => Number(card.dataset.originalIndex) === selectedIndex,
+        ) || null;
     }
     return focusCardForCall(target || cards[0]);
   }
@@ -1759,7 +1957,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     markKeyboardNavigation();
     nextCard.focus({ preventScroll: true });
-    selectCard(Number(nextCard.dataset.originalIndex), false, { instant: true });
+    selectCard(Number(nextCard.dataset.originalIndex), false, {
+      instant: true,
+    });
     ensureCardVisible(nextCard);
     return true;
   }
@@ -1767,25 +1967,52 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeAllBlockingLayers({ preserveDirtyPrompt = true } = {}) {
     // 再次唤起时回到干净调用态，不把上次未关的弹层带回来。
     // 未保存编辑草稿默认保留：托盘/二次启动/focus-search 不得静默 resetForm。
-    try { hideContextMenu(); } catch {}
-    try { setSystemMenuOpen(false); } catch {}
+    try {
+      hideContextMenu();
+    } catch {}
+    try {
+      setSystemMenuOpen(false);
+    } catch {}
     if (modal && modal.style.display === "flex") {
-      if (preserveDirtyPrompt && typeof isPromptFormDirty === "function" && isPromptFormDirty()) {
+      if (
+        preserveDirtyPrompt &&
+        typeof isPromptFormDirty === "function" &&
+        isPromptFormDirty()
+      ) {
         // keep open
       } else {
         modal.style.display = "none";
-        try { resetForm(); } catch {}
+        try {
+          resetForm();
+        } catch {}
       }
     } else if (modal) {
       modal.style.display = "none";
-      try { resetForm(); } catch {}
+      try {
+        resetForm();
+      } catch {}
     }
-    try { closePasteConfigModal(); } catch {}
-    try { closeCopyConfigModal(); } catch {}
-    try { closeRenameTagModal(); } catch {}
-    try { closeHiddenTagsModal(); } catch {}
-    try { closeWebdavModal(); } catch {}
-    try { syncBlurHideLock(); } catch {}
+    try {
+      closePasteConfigModal();
+    } catch {}
+    try {
+      closeCopyConfigModal();
+    } catch {}
+    try {
+      closeRenameTagModal();
+    } catch {}
+    try {
+      closeHiddenTagsModal();
+    } catch {}
+    try {
+      closeWebdavModal();
+    } catch {}
+    try {
+      closePermissionModal();
+    } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
   }
 
   function isDirtyPromptModalOpen() {
@@ -1806,7 +2033,8 @@ document.addEventListener("DOMContentLoaded", () => {
       copyConfigOverlay?.style.display === "flex" ||
       renameTagOverlay?.style.display === "flex" ||
       hiddenTagsOverlay?.style.display === "flex" ||
-      webdavOverlay?.style.display === "flex"
+      webdavOverlay?.style.display === "flex" ||
+      permissionOverlay?.style.display === "flex"
     );
   }
 
@@ -1827,7 +2055,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {}
     return locked;
   }
-
 
   function dismissSystemMenuForCallPath() {
     if (isSystemMenuOpen()) setSystemMenuOpen(false);
@@ -1854,7 +2081,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (useInFlight) return null;
     const item = allPrompts[index];
     if (!item) return null;
-    // 保留旧调用签名，所有调用统一只写入剪贴板。
     void options;
 
     setUseInFlight(true);
@@ -1866,16 +2092,30 @@ document.addEventListener("DOMContentLoaded", () => {
         return { copied: false, pasted: false, copyOnly: true };
       }
 
-      showToast("已拷贝到剪贴板");
-      flashCard(card, "card-copy-only");
+      if (result.pasted) {
+        // 已自动粘贴到目标应用（主进程已隐藏窗口）
+        showToast("已粘贴到当前输入位置");
+        flashCard(card, "card-using");
+      } else if (result.requiresAccessibilityPermission) {
+        showToast("已复制，请先授予辅助功能权限");
+        flashCard(card, "card-copy-only");
+      } else if (result.requiresAutomationPermission) {
+        showToast("已复制，请先授予自动化权限（系统事件）");
+        flashCard(card, "card-copy-only");
+      } else {
+        showToast("已拷贝到剪贴板");
+        flashCard(card, "card-copy-only");
+      }
       markPromptUsed(item);
       selectedIndex = index;
       await saveData({ render: false });
-      return { ...result, copied: true, pasted: false, copyOnly: true };
+      return { ...result, copied: true, copyOnly: !result.pasted };
     } finally {
       setUseInFlight(false);
       if (previewUse) {
-        previewUse.disabled = !(selectedIndex !== null && allPrompts[selectedIndex]);
+        previewUse.disabled = !(
+          selectedIndex !== null && allPrompts[selectedIndex]
+        );
       }
     }
   }
@@ -1884,7 +2124,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const tags = getAllTagNames();
 
     if (tags.length === 0) {
-      tagDropdown.innerHTML = '<div class="tag-dropdown-empty">暂无已有标签</div>';
+      tagDropdown.innerHTML =
+        '<div class="tag-dropdown-empty">暂无已有标签</div>';
     } else {
       tagDropdown.innerHTML = tags
         .map(
@@ -1915,14 +2156,22 @@ document.addEventListener("DOMContentLoaded", () => {
       getVisibleInAllCount(),
       currentFilter === "all",
     );
-    navItemsContainer.insertBefore(allLink, document.getElementById("addTagBtn"));
+    navItemsContainer.insertBefore(
+      allLink,
+      document.getElementById("addTagBtn"),
+    );
 
     tags.forEach((tag) => {
-      const count = allPrompts.filter((p) => normalizeTag(p.tag) === tag).length;
+      const count = allPrompts.filter(
+        (p) => normalizeTag(p.tag) === tag,
+      ).length;
       const tagLink = createNavLink(tag, tag, count, currentFilter === tag, {
         hidden: hiddenTags.includes(tag),
       });
-      navItemsContainer.insertBefore(tagLink, document.getElementById("addTagBtn"));
+      navItemsContainer.insertBefore(
+        tagLink,
+        document.getElementById("addTagBtn"),
+      );
     });
 
     document.querySelectorAll(".nav-item").forEach((item) => {
@@ -2072,8 +2321,14 @@ document.addEventListener("DOMContentLoaded", () => {
       card.tabIndex = 0;
       card.dataset.originalIndex = item.originalIndex;
       card.setAttribute("role", "option");
-      card.setAttribute("aria-selected", selectedIndex === item.originalIndex ? "true" : "false");
-      card.setAttribute("aria-label", `${item.name || "未命名"}，${normalizedTag || "默认"}`);
+      card.setAttribute(
+        "aria-selected",
+        selectedIndex === item.originalIndex ? "true" : "false",
+      );
+      card.setAttribute(
+        "aria-label",
+        `${item.name || "未命名"}，${normalizedTag || "默认"}`,
+      );
       card.addEventListener("mouseenter", () => {
         if (isKeyboardNavigating()) return;
         // 唤起后指针未移动前不悬停改选，保住第一名肌肉记忆。
@@ -2220,9 +2475,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Keep fallback selection order aligned with visual sections.
       visibleIndices.length = 0;
-      pinnedItems.forEach((card) => visibleIndices.push(Number(card.dataset.originalIndex)));
-      surfacedRecentItems.forEach(({ item }) => visibleIndices.push(item.originalIndex));
-      regularItems.forEach((card) => visibleIndices.push(Number(card.dataset.originalIndex)));
+      pinnedItems.forEach((card) =>
+        visibleIndices.push(Number(card.dataset.originalIndex)),
+      );
+      surfacedRecentItems.forEach(({ item }) =>
+        visibleIndices.push(item.originalIndex),
+      );
+      regularItems.forEach((card) =>
+        visibleIndices.push(Number(card.dataset.originalIndex)),
+      );
     }
 
     // Annotate visible cards with shortcut ranks for the first nine.
@@ -2261,7 +2522,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (visibleCount === 0) {
       const isEmpty = allPrompts.length === 0;
       const noSearchMatch = !isEmpty && isSearching;
-      const noCategoryMatch = !isEmpty && !isSearching && activeFilter !== "all";
+      const noCategoryMatch =
+        !isEmpty && !isSearching && activeFilter !== "all";
       const title = isEmpty
         ? "还没有提示词"
         : noSearchMatch
@@ -2281,21 +2543,33 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="empty-state-title">${escapeHtml(title)}</div>
           <div class="empty-state-text">${escapeHtml(textHint)}</div>
           <div class="empty-state-actions">
-            ${isEmpty ? `
+            ${
+              isEmpty
+                ? `
             <button class="empty-state-btn primary" type="button" id="emptyAddBtn">
               新增提示词
             </button>
-            ` : ""}
-            ${noSearchMatch ? `
+            `
+                : ""
+            }
+            ${
+              noSearchMatch
+                ? `
             <button class="empty-state-btn primary" type="button" id="emptyClearSearchBtn">
               清除搜索
             </button>
-            ` : ""}
-            ${noCategoryMatch ? `
+            `
+                : ""
+            }
+            ${
+              noCategoryMatch
+                ? `
             <button class="empty-state-btn primary" type="button" id="emptyShowAllBtn">
               查看全部
             </button>
-            ` : ""}
+            `
+                : ""
+            }
           </div>
         </div>
       `;
@@ -2303,7 +2577,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (emptyAddBtn) {
         emptyAddBtn.onclick = () => openAddPrompt();
       }
-      const emptyClearSearchBtn = document.getElementById("emptyClearSearchBtn");
+      const emptyClearSearchBtn = document.getElementById(
+        "emptyClearSearchBtn",
+      );
       if (emptyClearSearchBtn) {
         emptyClearSearchBtn.onclick = () => clearSearchInput({ focus: true });
       }
@@ -2428,7 +2704,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const firstCard = document.querySelector(".card");
         if (firstCard) {
           firstCard.focus({ preventScroll: true });
-          selectCard(Number(firstCard.dataset.originalIndex), false, { instant: true });
+          selectCard(Number(firstCard.dataset.originalIndex), false, {
+            instant: true,
+          });
           ensureCardVisible(firstCard);
         }
       }
@@ -2498,7 +2776,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (modal) modal.style.display = "flex";
       syncBlurHideLock();
       renderAll();
-      try { focusModalPrimaryField(); } catch {}
+      try {
+        focusModalPrimaryField();
+      } catch {}
       showToast("保存失败，请重试");
       return false;
     }
@@ -2550,7 +2830,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return {
       name: String(document.getElementById("newName")?.value || "").trim(),
       tag: String(document.getElementById("newTag")?.value || "").trim(),
-      content: String(document.getElementById("newContent")?.value || "").trim(),
+      content: String(
+        document.getElementById("newContent")?.value || "",
+      ).trim(),
     };
   }
 
@@ -2595,11 +2877,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // 未保存草稿时拒绝重置表单，避免 ⌘N / 顶栏新增 / 侧栏新增冲掉编辑。
     if (isDirtyPromptModalOpen()) {
       showToast("有未保存的编辑，请先保存或关闭", { duration: 2200 });
-      try { focusModalPrimaryField(); } catch {}
+      try {
+        focusModalPrimaryField();
+      } catch {}
       return false;
     }
-    try { dismissSystemMenuForCallPath(); } catch {}
-    try { hideContextMenu(); } catch {}
+    try {
+      dismissSystemMenuForCallPath();
+    } catch {}
+    try {
+      hideContextMenu();
+    } catch {}
     resetForm();
     discardFormArmedUntil = 0;
     modal.style.display = "flex";
@@ -2695,7 +2983,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  async function applyImportedPrompts(importedPrompts, { sourceLabel = "导入" } = {}) {
+  async function applyImportedPrompts(
+    importedPrompts,
+    { sourceLabel = "导入" } = {},
+  ) {
     const list = sanitizePromptList(importedPrompts);
     if (list.length === 0) {
       await safeAlert(`${sourceLabel}失败：未解析到有效提示词`);
@@ -2761,7 +3052,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  async function importPromptsFromRaw(raw, format = "json", sourceLabel = "导入") {
+  async function importPromptsFromRaw(
+    raw,
+    format = "json",
+    sourceLabel = "导入",
+  ) {
     let importedPrompts = [];
     try {
       importedPrompts = extractPromptsFromImport(raw, format);
@@ -2783,29 +3078,31 @@ document.addEventListener("DOMContentLoaded", () => {
     return applyImportedPrompts(importedPrompts, { sourceLabel });
   }
 
-  if (menuExport) menuExport.onclick = async () => {
-    try {
-      assertElectron();
-      let format = "json";
-      if (electronAPI?.chooseExportFormat) {
-        format = await electronAPI.chooseExportFormat();
+  if (menuExport)
+    menuExport.onclick = async () => {
+      try {
+        assertElectron();
+        let format = "json";
+        if (electronAPI?.chooseExportFormat) {
+          format = await electronAPI.chooseExportFormat();
+        }
+        if (format === "cancel") return;
+        if (!["json", "markdown", "csv"].includes(format)) format = "json";
+        const payload = buildExportPayload(format);
+        const result = await electronAPI.exportPrompts(payload);
+        if (!result?.canceled && result?.filePath) {
+          const name = result.filePath.split(/[/\\]/).pop();
+          showToast(`已导出：${name}`);
+        }
+      } catch (err) {
+        if (!String(err).includes("取消")) {
+          await safeAlert(`导出失败: ${err?.message || err}`);
+        }
       }
-      if (format === "cancel") return;
-      if (!["json", "markdown", "csv"].includes(format)) format = "json";
-      const payload = buildExportPayload(format);
-      const result = await electronAPI.exportPrompts(payload);
-      if (!result?.canceled && result?.filePath) {
-        const name = result.filePath.split(/[/\\]/).pop();
-        showToast(`已导出：${name}`);
-      }
-    } catch (err) {
-      if (!String(err).includes("取消")) {
-        await safeAlert(`导出失败: ${err?.message || err}`);
-      }
-    }
-    try { setSystemMenuOpen(false); } catch {}
-  };
-
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
+    };
 
   if (menuSafetyRestore) {
     menuSafetyRestore.onclick = async () => {
@@ -2816,7 +3113,9 @@ document.addEventListener("DOMContentLoaded", () => {
           if (result?.reason === "empty") {
             showToast("暂无安全快照");
           }
-          try { setSystemMenuOpen(false); } catch {}
+          try {
+            setSystemMenuOpen(false);
+          } catch {}
           return;
         }
         const previous = clonePromptList(allPrompts);
@@ -2826,35 +3125,46 @@ document.addEventListener("DOMContentLoaded", () => {
           ? { type: "replace", prompts: previous }
           : null;
         renderAll();
-        showToast(`已恢复安全快照（${result?.promptsCount ?? allPrompts.length} 条）`, {
-          actionLabel: previous.length > 0 ? "撤销" : "",
-          onAction: previous.length > 0 ? () => applyPendingUndo() : null,
-        });
+        showToast(
+          `已恢复安全快照（${result?.promptsCount ?? allPrompts.length} 条）`,
+          {
+            actionLabel: previous.length > 0 ? "撤销" : "",
+            onAction: previous.length > 0 ? () => applyPendingUndo() : null,
+          },
+        );
       } catch (err) {
         await safeAlert(`恢复安全快照失败: ${err?.message || err}`);
       }
-      try { setSystemMenuOpen(false); } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     };
   }
 
   if (menuHiddenTags) {
     menuHiddenTags.onclick = () => {
       openHiddenTagsModal();
-      try { setSystemMenuOpen(false); } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     };
   }
 
   if (menuTheme) {
     menuTheme.onclick = () => {
       cycleThemeMode();
-      try { setSystemMenuOpen(false); } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     };
   }
 
   if (menuOpenAtLogin) {
     menuOpenAtLogin.onclick = async () => {
       await toggleOpenAtLogin();
-      try { setSystemMenuOpen(false); } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     };
   }
 
@@ -2883,10 +3193,11 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (err) {
         await safeAlert(`切换快捷键失败: ${err?.message || err}`);
       }
-      try { setSystemMenuOpen(false); } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     };
   }
-
 
   if (menuShortcuts) {
     menuShortcuts.onclick = async () => {
@@ -2934,13 +3245,20 @@ document.addEventListener("DOMContentLoaded", () => {
         `  ${isApple ? "⌘⇧L" : "Ctrl+Shift+L"}     切换主题（跟随系统 / 浅色 / 深色）`,
       ].join("\n");
       await safeAlert(detail);
-      try { setSystemMenuOpen(false); } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     };
   }
 
   if (menuAbout) {
     menuAbout.onclick = async () => {
-      let info = { name: "PromptBox", version: "0.3.0", platform: "unknown", isPackaged: false };
+      let info = {
+        name: "PromptBox",
+        version: "0.3.0",
+        platform: "unknown",
+        isPackaged: false,
+      };
       try {
         assertElectron();
         const remote = await electronAPI?.getAppInfo?.();
@@ -2960,98 +3278,91 @@ document.addEventListener("DOMContentLoaded", () => {
         `主路径：${info.globalHotkey || "Alt+E"} → 搜索/选择 → 复制到剪贴板`,
       ].join("\n");
       await safeAlert(detail);
-      try { setSystemMenuOpen(false); } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     };
   }
 
   if (menuPermissions) {
-    menuPermissions.onclick = async () => {
-      let diagnostics = null;
+    menuPermissions.onclick = () => {
       try {
-        assertElectron();
-        diagnostics = await electronAPI?.getPermissionDiagnostics?.();
-      } catch (err) {
-        console.error("读取权限诊断失败", err);
-      }
-
-      const targetName = diagnostics?.targetName || "Electron";
-      const targetPath = diagnostics?.targetPath || "未知";
-      const accessibilityTrusted = diagnostics?.accessibilityTrusted;
-      const isPackaged = Boolean(diagnostics?.isPackaged);
-      const detail = [
-        "权限说明",
-        "",
-        "1. 自动粘贴依赖两类 macOS 权限：",
-        "   - 辅助功能：允许发送键盘操作",
-        "   - 自动化：允许控制 System Events",
-        "2. 全局快捷键在部分机器上也可能依赖辅助功能权限。",
-        isPackaged
-          ? `3. 当前运行目标：${targetName}`
-          : `3. 当前是开发模式，应授权“${targetName}”，不是“PromptBox”。`,
-        `4. 可执行文件路径：${targetPath}`,
-        accessibilityTrusted === false
-          ? "5. 当前检测结果：辅助功能尚未授权。"
-          : accessibilityTrusted === true
-            ? "5. 当前检测结果：辅助功能已授权；若仍无法自动粘贴，请检查“自动化 -> Electron -> System Events”。"
-            : "5. 当前检测结果：暂时无法读取辅助功能状态。",
-        "",
-        "重装或覆盖安装后，系统可能仍显示旧勾选但实际已失效。",
-        "请先关闭 PromptBox，在“辅助功能”里移除旧条目再重新添加/开启，然后重启应用。",
-        "",
-        "点击“确定”后将尝试打开“辅助功能”设置页。",
-        "若辅助功能已开但仍不能自动粘贴，再到“自动化”里允许 Electron 控制 System Events。",
-      ].join("\n");
-
-      await safeAlert(detail);
-      if (accessibilityTrusted === false) {
-        await openAccessibilitySettings();
-      } else {
-        await openAutomationSettings();
-      }
-      try { setSystemMenuOpen(false); } catch {}
+        openPermissionModal();
+      } catch {}
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
     };
   }
 
-  if (menuWebdav) menuWebdav.onclick = () => {
-    (async () => {
-      openWebdavModal();
-      try { setSystemMenuOpen(false); } catch {}
-      const config = await loadWebdavConfig();
-      if (config) {
-        if (webdavUrl) webdavUrl.value = config.url || "";
-        if (webdavUsername) webdavUsername.value = config.username || "";
-        if (webdavPassword) webdavPassword.value = config.password || "";
-        if (webdavDir) webdavDir.value = config.directory || "prompt-box-backups";
-        if (webdavConfigJson) {
-          webdavConfigJson.value = JSON.stringify(buildWebdavSnapshot(config), null, 2);
+  // Permission Modal Events
+  if (permissionClose) permissionClose.onclick = closePermissionModal;
+  if (permissionDone) permissionDone.onclick = closePermissionModal;
+  if (permissionRefresh)
+    permissionRefresh.onclick = () => void refreshPermissionStatus();
+  if (permissionA11yBtn)
+    permissionA11yBtn.onclick = () => void openAccessibilitySettings();
+  if (permissionAutoBtn)
+    permissionAutoBtn.onclick = () => void openAutomationSettings();
+  if (permissionOverlay) {
+    permissionOverlay.onclick = (e) => {
+      if (e.target === permissionOverlay) closePermissionModal();
+    };
+  }
+
+  if (menuWebdav)
+    menuWebdav.onclick = () => {
+      (async () => {
+        openWebdavModal();
+        try {
+          setSystemMenuOpen(false);
+        } catch {}
+        const config = await loadWebdavConfig();
+        if (config) {
+          if (webdavUrl) webdavUrl.value = config.url || "";
+          if (webdavUsername) webdavUsername.value = config.username || "";
+          if (webdavPassword) webdavPassword.value = config.password || "";
+          if (webdavDir)
+            webdavDir.value = config.directory || "prompt-box-backups";
+          if (webdavConfigJson) {
+            webdavConfigJson.value = JSON.stringify(
+              buildWebdavSnapshot(config),
+              null,
+              2,
+            );
+          }
+        }
+        if (electronAPI?.getWebdavSettings) {
+          const settings = await electronAPI.getWebdavSettings();
+          if (webdavAutoBackup)
+            webdavAutoBackup.checked = !!settings?.autoBackupEnabled;
+          if (webdavIntervalDays)
+            webdavIntervalDays.value = String(settings?.intervalDays ?? 3);
+        }
+        await loadWebdavBackups();
+      })();
+    };
+
+  if (menuImport)
+    menuImport.onclick = async () => {
+      try {
+        assertElectron();
+        const result = await electronAPI.importPrompts();
+        if (result?.canceled) return;
+        const format =
+          result.format === "markdown" || result.format === "csv"
+            ? result.format
+            : "json";
+        await importPromptsFromRaw(result.raw, format, "导入");
+      } catch (err) {
+        if (!String(err).includes("取消")) {
+          await safeAlert(`导入失败: ${err?.message || err}`);
         }
       }
-      if (electronAPI?.getWebdavSettings) {
-        const settings = await electronAPI.getWebdavSettings();
-        if (webdavAutoBackup) webdavAutoBackup.checked = !!settings?.autoBackupEnabled;
-        if (webdavIntervalDays) webdavIntervalDays.value = String(settings?.intervalDays ?? 3);
-      }
-      await loadWebdavBackups();
-    })();
-  };
-
-  if (menuImport) menuImport.onclick = async () => {
-    try {
-      assertElectron();
-      const result = await electronAPI.importPrompts();
-      if (result?.canceled) return;
-      const format =
-        result.format === "markdown" || result.format === "csv"
-          ? result.format
-          : "json";
-      await importPromptsFromRaw(result.raw, format, "导入");
-    } catch (err) {
-      if (!String(err).includes("取消")) {
-        await safeAlert(`导入失败: ${err?.message || err}`);
-      }
-    }
-    try { setSystemMenuOpen(false); } catch {}
-  };
+      try {
+        setSystemMenuOpen(false);
+      } catch {}
+    };
 
   if (previewUse) {
     previewUse.onclick = async (e) => {
@@ -3209,7 +3520,11 @@ document.addEventListener("DOMContentLoaded", () => {
     webdavRestore.onclick = async () => {
       try {
         if (!(await saveWebdavConfig())) return;
-        if (!(await safeConfirm("将从 WebDAV 恢复，当前本地内容将被覆盖。继续吗？"))) {
+        if (
+          !(await safeConfirm(
+            "将从 WebDAV 恢复，当前本地内容将被覆盖。继续吗？",
+          ))
+        ) {
           return;
         }
         let result;
@@ -3242,13 +3557,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const intervalField = document.getElementById("intervalField");
-  
+
   function updateIntervalFieldVisibility() {
     if (intervalField) {
-      intervalField.style.display = webdavAutoBackup?.checked ? "block" : "none";
+      intervalField.style.display = webdavAutoBackup?.checked
+        ? "block"
+        : "none";
     }
   }
-  
+
   if (webdavAutoBackup || webdavIntervalDays) {
     const saveSettings = async () => {
       if (!electronAPI?.setWebdavSettings) return;
@@ -3279,7 +3596,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function closeCopyConfigModal() {
     if (copyConfigOverlay) copyConfigOverlay.style.display = "none";
-    try { syncBlurHideLock(); } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
   }
 
   // Paste Config Modal Functions
@@ -3292,7 +3611,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function closePasteConfigModal() {
     if (pasteConfigOverlay) pasteConfigOverlay.style.display = "none";
-    try { syncBlurHideLock(); } catch {}
+    try {
+      syncBlurHideLock();
+    } catch {}
   }
 
   async function applyPastedConfig() {
@@ -3407,9 +3728,17 @@ document.addEventListener("DOMContentLoaded", () => {
         closeWebdavModal();
         return;
       }
+      if (permissionOverlay?.style.display === "flex") {
+        closePermissionModal();
+        return;
+      }
       // 先收起 toast（含撤销入口），再逐步回到干净调用态，最后才退场。
       const toast = document.getElementById("toast");
-      if (toast && toast.style.display === "flex" && toast.style.opacity !== "0") {
+      if (
+        toast &&
+        toast.style.display === "flex" &&
+        toast.style.opacity !== "0"
+      ) {
         hideToast();
         return;
       }
@@ -3430,7 +3759,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+    if (
+      (e.metaKey || e.ctrlKey) &&
+      e.key.toLowerCase() === "z" &&
+      !e.shiftKey
+    ) {
       if (!isBlockingLayerOpen() && !isTypingTarget(e.target) && pendingUndo) {
         e.preventDefault();
         void applyPendingUndo();
@@ -3439,7 +3772,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ⌘/Ctrl+N：新增（管理动作，不抢调用主路径）
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n" && !e.shiftKey && !e.altKey) {
+    if (
+      (e.metaKey || e.ctrlKey) &&
+      e.key.toLowerCase() === "n" &&
+      !e.shiftKey &&
+      !e.altKey
+    ) {
       if (!isBlockingLayerOpen()) {
         e.preventDefault();
         openAddPrompt();
@@ -3447,8 +3785,17 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d" && !e.shiftKey && !e.altKey) {
-      if (!isBlockingLayerOpen() && !isTypingTarget(e.target) && selectedIndex !== null) {
+    if (
+      (e.metaKey || e.ctrlKey) &&
+      e.key.toLowerCase() === "d" &&
+      !e.shiftKey &&
+      !e.altKey
+    ) {
+      if (
+        !isBlockingLayerOpen() &&
+        !isTypingTarget(e.target) &&
+        selectedIndex !== null
+      ) {
         e.preventDefault();
         void duplicatePromptAtIndex(selectedIndex);
         return;
@@ -3456,7 +3803,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "p") {
-      if (!isBlockingLayerOpen() && !isTypingTarget(e.target) && selectedIndex !== null) {
+      if (
+        !isBlockingLayerOpen() &&
+        !isTypingTarget(e.target) &&
+        selectedIndex !== null
+      ) {
         e.preventDefault();
         void togglePinAtIndex(selectedIndex);
         return;
@@ -3464,7 +3815,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
-      if (!isBlockingLayerOpen() && !isTypingTarget(e.target) && selectedIndex !== null) {
+      if (
+        !isBlockingLayerOpen() &&
+        !isTypingTarget(e.target) &&
+        selectedIndex !== null
+      ) {
         e.preventDefault();
         void copyPromptContentAtIndex(selectedIndex);
         return;
@@ -3521,7 +3876,10 @@ document.addEventListener("DOMContentLoaded", () => {
       !e.isComposing &&
       e.keyCode !== 229
     ) {
-      if (!isModalLayerOpen() && (!isTypingTarget(e.target) || e.target === searchInput)) {
+      if (
+        !isModalLayerOpen() &&
+        (!isTypingTarget(e.target) || e.target === searchInput)
+      ) {
         e.preventDefault();
         dismissSystemMenuForCallPath();
         void useVisiblePromptByRank(Number(e.key));
@@ -3595,13 +3953,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (
-      (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+      (e.key === "ArrowDown" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight") &&
       !e.metaKey &&
       !e.ctrlKey &&
       !e.altKey
     ) {
       const isSearchFocused = e.target === searchInput;
-      if (!isModalLayerOpen() && (!isTypingTarget(e.target) || isSearchFocused)) {
+      if (
+        !isModalLayerOpen() &&
+        (!isTypingTarget(e.target) || isSearchFocused)
+      ) {
         const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1;
         const moved = focusAdjacentCard(step);
         if (moved) {
@@ -3630,7 +3994,9 @@ document.addEventListener("DOMContentLoaded", () => {
         e.stopPropagation();
         markKeyboardNavigation();
         target.focus({ preventScroll: true });
-        selectCard(Number(target.dataset.originalIndex), false, { instant: true });
+        selectCard(Number(target.dataset.originalIndex), false, {
+          instant: true,
+        });
         ensureCardVisible(target);
         return;
       }
@@ -3665,7 +4031,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (target) {
           markKeyboardNavigation();
           target.focus({ preventScroll: true });
-          selectCard(Number(target.dataset.originalIndex), false, { instant: true });
+          selectCard(Number(target.dataset.originalIndex), false, {
+            instant: true,
+          });
           ensureCardVisible(target);
         }
         return;
@@ -3927,7 +4295,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (hasSearchInputChars()) {
         searchInput.select();
       }
-      // 每次唤起复检辅助功能：重装/关再开后若仍未授权，按身份冷却轻提示。
+      // 每次唤起复检辅助功能：重装/关再开后若仍未授权，按身份冷却轻提示 + 主动请求。
       if (electronAPI?.getPermissionDiagnostics) {
         void electronAPI
           .getPermissionDiagnostics()
@@ -3936,6 +4304,12 @@ document.addEventListener("DOMContentLoaded", () => {
               showToast("自动粘贴需辅助功能权限 · 重装后请关闭旧勾选再允许", {
                 duration: 4800,
               });
+              // 主动请求（仅 Tauri 版）：系统弹出辅助功能授权引导框
+              if (electronAPI?.requestAccessibilityPrompt) {
+                try {
+                  void electronAPI.requestAccessibilityPrompt();
+                } catch {}
+              }
             }
           })
           .catch(() => {});

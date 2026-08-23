@@ -7,6 +7,19 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use wait_timeout::ChildExt;
 
+// CoreGraphics FFI：CGEvent 直接发按键（绕过 osascript 子进程权限限制）
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    fn CGEventCreateKeyboardEvent(
+        source: *const std::ffi::c_void,
+        virtualKey: u16,
+        keyDown: bool,
+    ) -> *mut std::ffi::c_void;
+    fn CGEventPost(tap: u32, event: *mut std::ffi::c_void);
+    fn CGEventSetFlags(event: *mut std::ffi::c_void, flags: u64);
+}
+
 pub fn now_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -267,16 +280,31 @@ pub fn activate_paste_target(session_name: &mut String, session_pid: &mut i64, f
 }
 
 fn send_paste_keystroke() -> Result<(), PasteError> {
-    run_osascript(
-        &[
-            "tell application \"System Events\"",
-            "keystroke \"v\" using command down",
-            "end tell",
-        ],
-        1000,
-    )
-    .map_err(|e| classify_paste_error(&e))
-    .map(|_| ())
+    #[cfg(target_os = "macos")]
+    {
+        const K_V: u16 = 0x09; // kVK_ANSI_V
+        const K_CMD: u64 = 0x00100000; // kCGEventFlagMaskCommand
+        const TAP_SESSION: u32 = 0; // kCGHIDEventTap
+        unsafe {
+            let down = CGEventCreateKeyboardEvent(std::ptr::null(), K_V, true);
+            let up = CGEventCreateKeyboardEvent(std::ptr::null(), K_V, false);
+            if down.is_null() || up.is_null() {
+                if !down.is_null() { /* leak — rare, ignore */ }
+                if !up.is_null() { /* leak — rare, ignore */ }
+                return Err(PasteError::Unknown("CGEventCreateKeyboardEvent returned null".into()));
+            }
+            CGEventSetFlags(down, K_CMD);
+            CGEventSetFlags(up, K_CMD);
+            CGEventPost(TAP_SESSION, down);
+            thread::sleep(Duration::from_millis(5));
+            CGEventPost(TAP_SESSION, up);
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(())
+    }
 }
 
 // —— 错误分类（classifyAppleScriptPasteError 全量移植）——
@@ -290,6 +318,8 @@ pub fn classify_paste_error(message: &str) -> PasteError {
     if message.contains("(-1719)")
         || lower.contains("assistive access")
         || lower.contains("not allowed to send keystrokes")
+        || message.contains("不允许发送按键")
+        || message.contains("不允许辅助访问")
     {
         return PasteError::Accessibility(message.to_string());
     }

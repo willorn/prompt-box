@@ -17,6 +17,7 @@
     "preflight": "bash ./scripts/preflight-release.sh"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "electron": "^32.2.0",
     "electron-builder": "^24.13.3"
   },

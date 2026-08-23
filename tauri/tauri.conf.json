@@ -10,11 +10,19 @@
     "withGlobalTauri": true,
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,
     "targets": ["dmg"],
-    "icon": ["icons/icon.icns"]
+    "icon": ["icons/icon.icns"],
+    "macOS": {
+      "minimumSystemVersion": "10.13",
+      "entitlements": null,
+      "exceptionDomain": null
+    },
+    "resources": [],
+    "category": "Productivity"
   }
 }

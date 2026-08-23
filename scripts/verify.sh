@@ -54,8 +54,8 @@ if (!renderer.includes("isModalLayerOpen") || !renderer.includes("dismissSystemM
 if (!renderer.includes("空搜索时数字键") || !renderer.includes("首次使用默认收起预览")) {
   throw new Error("missing bare digit rank use / dense first-run preview in renderer.js");
 }
-if (!renderer.includes("仅复制成功：轻闪卡片即可，不弹 toast") || !renderer.includes("调用层成功路径保持静默")) {
-  throw new Error("missing silent copy/paste success path in renderer.js");
+if (!renderer.includes("已拷贝到剪贴板") || !renderer.includes("复制到剪贴板")) {
+  throw new Error("missing clipboard success toast path in renderer.js");
 }
 
 if (!renderer.includes("loadSidebarCollapsed") || !renderer.includes("toggleSidebarCollapsed")) {
@@ -100,8 +100,8 @@ if (!renderer.includes("PageUp / PageDown") || !renderer.includes("按页跳选"
 if (!renderer.includes("focusSelectedOrFirstCard") || !renderer.includes("搜索 ↔ 列表") || !renderer.includes("搜索结果从顶部看起")) {
   throw new Error("missing Tab focus loop / search scroll-top polish in renderer.js");
 }
-if (!renderer.includes("queueSilentSave") || !renderer.includes("saveChain") || !renderer.includes("成功粘贴后异步串行静默保存") || !renderer.includes("串行落盘")) {
-  throw new Error("missing queued silent post-paste save in renderer.js");
+if (!renderer.includes("queueSilentSave") || !renderer.includes("saveChain") || !renderer.includes("串行落盘")) {
+  throw new Error("missing queued save path in renderer.js");
 }
 if (!renderer.includes("未保存草稿时拒绝重置表单") || !renderer.includes("已有未保存草稿时不切换条目") || !renderer.includes("与 openAddPrompt 同路径")) {
   throw new Error("missing dirty prompt form open guards in renderer.js");

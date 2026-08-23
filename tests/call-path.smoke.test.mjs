@@ -29,7 +29,6 @@ test("renderer keeps critical call-path helpers", () => {
   assert.match(src, /from\s+["']\.\/lib\/prompt-helpers\.js["']/);
   assert.match(src, /async function safeConfirm\b/);
   assert.match(src, /confirmMessage = false/);
-  assert.match(src, /paste: !e\.shiftKey/);
   assert.match(src, /copyOnly/);
   assert.match(src, /closeAllBlockingLayers/);
   assert.match(src, /openAccessibilitySettings/);
@@ -63,11 +62,8 @@ test("renderer keeps critical call-path helpers", () => {
   assert.match(src, /key === \"Backspace\"/);
   assert.match(src, /key\.toLowerCase\(\) === \"n\"/);
   assert.match(src, /key\.toLowerCase\(\) === \"f\"/);
-  assert.match(src, /调用层成功路径保持静默/);
-  assert.match(src, /仅复制成功：轻闪卡片即可，不弹 toast/);
-  assert.match(src, /复制成功不 toast/);
-  assert.match(src, /分享成功不 toast/);
-  assert.match(src, /未自动粘贴：内容已在剪贴板/);
+  assert.match(src, /已拷贝到剪贴板/);
+  assert.match(src, /复制到剪贴板/);
   assert.match(src, /queueSilentSave/);
   assert.match(src, /setUseInFlight/);
   assert.match(src, /call-use-in-flight/);
@@ -91,7 +87,6 @@ test("renderer keeps critical call-path helpers", () => {
   assert.match(src, /searchClearBtn/);
   assert.match(src, /saveChain/);
   assert.match(src, /串行落盘/);
-  assert.match(src, /成功粘贴后异步串行静默保存/);
   assert.match(src, /未保存草稿时拒绝重置表单/);
   assert.match(src, /已有未保存草稿时不切换条目/);
   assert.match(src, /与 openAddPrompt 同路径/);

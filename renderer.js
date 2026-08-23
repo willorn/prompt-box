@@ -84,7 +84,7 @@ async function persistPrompts(list) {
 
 async function copyText(text) {
   const value = String(text ?? "");
-  // 优先主进程剪贴板：与粘贴路径一致，少受渲染进程权限/焦点影响。
+  // 优先主进程剪贴板，减少渲染进程权限/焦点变化带来的失败。
   try {
     if (electronAPI?.writeClipboard) {
       await electronAPI.writeClipboard(value);
@@ -120,15 +120,6 @@ async function copyPromptForUse(text) {
   if (!value) {
     return { copied: false, pasted: false };
   }
-  try {
-    assertElectron();
-    if (electronAPI?.copyPastePrompt) {
-      return await electronAPI.copyPastePrompt(value);
-    }
-  } catch (err) {
-    console.error("主进程复制粘贴失败，回退为仅复制", err);
-  }
-
   const copied = await copyText(value);
   return { copied, pasted: false };
 }
@@ -1198,7 +1189,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("复制失败");
       return false;
     }
-    // 复制成功不 toast：用户仍在窗口内，剪贴板结果可直观验证。
+    showToast("已拷贝到剪贴板");
     return true;
   }
 
@@ -1259,7 +1250,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("分享失败：无法写入剪贴板");
       return false;
     }
-    // 分享成功不 toast：仍停在管理层，失败才提示。
+    showToast("已拷贝到剪贴板");
     return true;
   }
 
@@ -1479,7 +1470,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (previewTitle) previewTitle.textContent = "选择一条提示词";
     if (previewBody) {
       previewBody.textContent =
-        "单击立即使用，Shift+单击仅复制；直接打字搜索；右键或 E/P/Delete(⌫) 管理。";
+        "单击复制到剪贴板；直接打字搜索；右键或 E/P/Delete(⌫) 管理。";
     }
     if (previewUsageStats) {
       previewUsageStats.textContent = "暂无使用记录";
@@ -1521,7 +1512,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (previewUse) {
       previewUse.disabled = false;
-      previewUse.title = "立即使用（Shift 仅复制）";
+      previewUse.title = "复制到剪贴板";
     }
     if (previewPanel) previewPanel.style.opacity = "1";
     applyPreviewTheme(item, { animate });
@@ -1633,7 +1624,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (previewTitle) previewTitle.textContent = "选择一条提示词";
         if (previewBody) {
           previewBody.textContent =
-            "单击立即使用，Shift+单击仅复制；直接打字搜索；右键或 E/P/Delete(⌫) 管理。";
+            "单击复制到剪贴板；直接打字搜索；右键或 E/P/Delete(⌫) 管理。";
         }
         if (previewUsageStats) previewUsageStats.textContent = "暂无使用记录";
         if (previewUse) previewUse.disabled = true;
@@ -1853,7 +1844,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setUseInFlight(next) {
     useInFlight = next === true;
-    // 使用进行中锁住列表点击/预览主按钮，避免连点触发第二次粘贴。
+    // 使用进行中锁住列表点击/预览主按钮，避免连点触发第二次复制。
     try {
       document.body.classList.toggle("call-use-in-flight", useInFlight);
     } catch {}
@@ -1863,74 +1854,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (useInFlight) return null;
     const item = allPrompts[index];
     if (!item) return null;
-    const paste = options?.paste !== false;
+    // 保留旧调用签名，所有调用统一只写入剪贴板。
+    void options;
 
     setUseInFlight(true);
     if (previewUse) previewUse.disabled = true;
     try {
-      // Shift 使用：只复制到剪贴板，不自动粘贴、不强制隐藏，方便连续取用。
-      if (!paste) {
-        const copied = await copyText(item.content || "");
-        if (!copied) {
-          showToast("复制失败，请手动复制");
-          return { copied: false, pasted: false, copyOnly: true };
-        }
-        markPromptUsed(item);
-        selectedIndex = index;
-        await saveData({ render: false });
-        // 仅复制成功：轻闪卡片即可，不弹 toast 打断连续取用。
-        flashCard(card, "card-copy-only");
-        return { copied: true, pasted: false, copyOnly: true };
-      }
-
-      flashCard(card, "card-using");
       const result = await copyPromptForUse(item.content);
       if (!result?.copied) {
-        console.error("复制失败");
         showToast("复制失败，请手动复制");
-        return result;
+        return { copied: false, pasted: false, copyOnly: true };
       }
 
+      showToast("已拷贝到剪贴板");
+      flashCard(card, "card-copy-only");
       markPromptUsed(item);
       selectedIndex = index;
-      if (result.pasted) {
-        // 成功粘贴后异步串行静默保存：不挡 useInFlight，且连点不互相覆盖。
-        queueSilentSave();
-        // 调用层成功路径保持静默：已回到原应用，不弹通知打扰工作流。
-        return result;
-      }
-
-      // 失败回退路径仍同步保存，保证使用统计与内存一致后再提示。
       await saveData({ render: false });
-
-      if (result.requiresAccessibilityPermission) {
-        await notifyUser(`未自动粘贴：需辅助功能权限（可 ⌘V）`, { system: true });
-        // 按身份+冷却打开设置；重装后路径变化或冷却过后可再引导。
-        let diagnostics = null;
-        try {
-          diagnostics = await electronAPI?.getPermissionDiagnostics?.();
-        } catch {}
-        await maybeGuideAccessibility(diagnostics || { accessibilityTrusted: false }, {
-          openSettings: true,
-        });
-        closeCurrentWindowSilently();
-      } else if (result.requiresAutomationPermission) {
-        await notifyUser(`未自动粘贴：需自动化权限（可 ⌘V）`, { system: true });
-        if (!automationSettingsOpenedThisSession) {
-          automationSettingsOpenedThisSession = true;
-          void openAutomationSettings();
-        }
-        closeCurrentWindowSilently();
-      } else {
-        await notifyUser(`未自动粘贴：内容已在剪贴板，可 ⌘V`, { system: true });
-        closeCurrentWindowSilently();
-      }
-
-      // 成功粘贴后窗口已隐藏，无需再选中；失败回退路径若窗口仍在，再对齐选中态。
-      if (!result.pasted && allPrompts[index]) {
-        selectCard(index, false, { instant: true });
-      }
-      return result;
+      return { ...result, copied: true, pasted: false, copyOnly: true };
     } finally {
       setUseInFlight(false);
       if (previewUse) {
@@ -2146,18 +2087,18 @@ document.addEventListener("DOMContentLoaded", () => {
         dismissSystemMenuForCallPath();
         selectCard(item.originalIndex);
         card.focus({ preventScroll: true });
-        await usePromptAtIndex(item.originalIndex, card, { paste: !e.shiftKey });
+        await usePromptAtIndex(item.originalIndex, card);
       });
 
       // Arrow navigation is handled once at document level to avoid double-step jumps.
       card.onkeydown = (e) => {
         if (e.key === "Enter") {
-          // 输入法组合态回车只确认候选，不触发粘贴。
+          // 输入法组合态回车只确认候选，不触发复制。
           if (e.isComposing || e.keyCode === 229) return;
           e.preventDefault();
           e.stopPropagation();
           selectCard(item.originalIndex);
-          void usePromptAtIndex(item.originalIndex, card, { paste: !e.shiftKey });
+          void usePromptAtIndex(item.originalIndex, card);
         }
       };
 
@@ -2478,10 +2419,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const card = document.querySelector(
           `.card[data-original-index="${selectedIndex}"]`,
         );
-        await usePromptAtIndex(selectedIndex, card, { paste: !e.shiftKey });
+        await usePromptAtIndex(selectedIndex, card);
         used = true;
       } else {
-        used = await useVisiblePromptByRank(1, { paste: !e.shiftKey });
+        used = await useVisiblePromptByRank(1);
       }
       if (!used) {
         const firstCard = document.querySelector(".card");
@@ -2966,9 +2907,9 @@ document.addEventListener("DOMContentLoaded", () => {
         "  系统菜单·全局快捷键  切换候选；回退时可一点固定",
         "",
         "调用主路径",
-        "  Enter           使用当前选中（Shift+Enter 仅复制；搜索框同理）",
-        "  1-9            空搜索时使用第 N 条（Shift 仅复制）",
-        `  ${mod}1-9         任意时候使用第 N 条（搜索中也可用）`,
+        "  Enter           复制当前选中内容（搜索框同理）",
+        "  1-9            空搜索时复制第 N 条",
+        `  ${mod}1-9         任意时候复制第 N 条（搜索中也可用）`,
         "  ↑ / ↓           在列表中移动选中",
         "  PgUp / PgDn     按页跳选",
         "  Tab / ⇧Tab      搜索 ↔ 列表",
@@ -2983,7 +2924,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "  Delete / ⌫      空搜索时删除选中（可撤销；有搜索词时 ⌫ 改搜索）",
         `  ${isApple ? "⌘N" : "Ctrl+N"}             新增提示词`,
         `  ${settingsHotkey}            打开系统菜单`,
-        "  单击卡片         立即使用（Shift+单击仅复制）",
+        "  单击卡片         复制内容到剪贴板",
         "  右键卡片         复制 / 副本 / 分享 / 编辑 / 删除（删除可 ⌘Z 撤销）",
         `  ${isApple ? "⌘D" : "Ctrl+D"}            创建当前选中副本`,
         `  ${isApple ? "⌘⇧P" : "Ctrl+Shift+P"}     置顶 / 取消置顶`,
@@ -3016,7 +2957,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `运行：${info.isPackaged ? "打包版" : "开发模式"}`,
         "",
         "定位：全局快捷键唤起的 Prompt 快速调用层",
-        `主路径：${info.globalHotkey || "Alt+E"} → 搜索/选择 → 使用 → 回到原应用`,
+        `主路径：${info.globalHotkey || "Alt+E"} → 搜索/选择 → 复制到剪贴板`,
       ].join("\n");
       await safeAlert(detail);
       try { setSystemMenuOpen(false); } catch {}
@@ -3118,7 +3059,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = document.querySelector(
         `.card[data-original-index="${selectedIndex}"]`,
       );
-      await usePromptAtIndex(selectedIndex, card, { paste: !e.shiftKey });
+      await usePromptAtIndex(selectedIndex, card);
     };
   }
 
@@ -3399,8 +3340,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (copyConfigBtn) {
     copyConfigBtn.onclick = async () => {
       try {
-        await navigator.clipboard.writeText(copyConfigText?.value || "");
-        // 配置复制成功不 toast，关弹层即可。
+        const copied = await copyText(copyConfigText?.value || "");
+        if (!copied) throw new Error("无法写入剪贴板");
+        showToast("已拷贝到剪贴板");
         closeCopyConfigModal();
       } catch (err) {
         await safeAlert(`复制失败: ${err}`);
@@ -3570,7 +3512,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // ⌘/Ctrl + 1-9：快速使用；⌘/Ctrl + Shift + 1-9：仅复制
+    // ⌘/Ctrl + 1-9：快速复制内容
     // 系统菜单不阻挡调用主路径，打开时先收起再执行。
     if (
       (e.metaKey || e.ctrlKey) &&
@@ -3582,7 +3524,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isModalLayerOpen() && (!isTypingTarget(e.target) || e.target === searchInput)) {
         e.preventDefault();
         dismissSystemMenuForCallPath();
-        void useVisiblePromptByRank(Number(e.key), { paste: !e.shiftKey });
+        void useVisiblePromptByRank(Number(e.key));
         return;
       }
     }
@@ -3602,12 +3544,11 @@ document.addEventListener("DOMContentLoaded", () => {
     ) {
       e.preventDefault();
       dismissSystemMenuForCallPath();
-      void useVisiblePromptByRank(Number(e.key), { paste: !e.shiftKey });
+      void useVisiblePromptByRank(Number(e.key));
       return;
     }
 
-    // Enter：非输入态时使用当前选中项；无选中时回退可见第一名（与数字键 1 一致）。
-    // Shift+Enter 仅复制。
+    // Enter：非输入态时复制当前选中项；无选中时回退可见第一名（与数字键 1 一致）。
     if (
       e.key === "Enter" &&
       !e.metaKey &&
@@ -3627,11 +3568,11 @@ document.addEventListener("DOMContentLoaded", () => {
           const card = document.querySelector(
             `.card[data-original-index="${selectedIndex}"]`,
           );
-          void usePromptAtIndex(selectedIndex, card, { paste: !e.shiftKey });
+          void usePromptAtIndex(selectedIndex, card);
           return;
         }
       }
-      void useVisiblePromptByRank(1, { paste: !e.shiftKey });
+      void useVisiblePromptByRank(1);
       return;
     }
 
@@ -3862,7 +3803,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (searchInput) {
     searchInput.placeholder = "搜索 · 直接打字 · 多词 · / 或 ⌘K";
     if (previewUse) {
-      previewUse.title = "立即使用（Shift 仅复制）";
+      previewUse.title = "复制到剪贴板";
     }
     if (previewEdit) previewEdit.title = "编辑 (E，空搜索时)";
     if (previewPin) previewPin.title = "置顶 (P，空搜索时)";

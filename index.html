@@ -312,12 +312,12 @@
       @keyframes fadeInUp {
         from {
           opacity: 0;
-          transform: translate(-50%, 14px);
+          transform: translate(-50%, calc(-50% + 14px));
         }
 
         to {
           opacity: 1;
-          transform: translate(-50%, 0);
+          transform: translate(-50%, -50%);
         }
       }
 
@@ -3190,9 +3190,9 @@
       #toast {
         display: none;
         position: fixed;
-        bottom: 30px;
+        top: 50%;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         align-items: center;
         gap: 12px;
         max-width: min(520px, calc(100vw - 32px));
@@ -4182,10 +4182,10 @@
               </div>
               <div class="preview-title" id="previewTitle">选择一条提示词</div>
             </div>
-            <div class="preview-body" id="previewBody">单击立即使用，Shift+单击仅复制；直接打字搜索；右键或 E/P/Delete(⌫) 管理。</div>
+            <div class="preview-body" id="previewBody">单击复制到剪贴板；直接打字搜索；右键或 E/P/Delete(⌫) 管理。</div>
             <div class="preview-usage-stats" id="previewUsageStats">暂无使用记录</div>
             <div class="preview-primary-actions">
-              <button type="button" class="accent-btn preview-use-btn" id="previewUse" title="立即使用（Shift 仅复制）" disabled>立即使用</button>
+              <button type="button" class="accent-btn preview-use-btn" id="previewUse" title="复制到剪贴板" disabled>复制内容</button>
             </div>
           </section>
         </div>
@@ -4421,7 +4421,7 @@
       <button class="menu-item" id="menuHiddenTags" role="menuitem">隐藏分类</button>
     </div>
 
-<div id="toast" role="status" aria-live="polite" aria-atomic="true">已复制到剪贴板</div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true">已拷贝到剪贴板</div>
 
     <div id="contextMenu" class="context-menu">
       <div class="context-menu-item" data-action="pin">

@@ -416,21 +416,24 @@ fn show_main(app: &AppHandle) {
         ),
     };
 
-    let _ = win.set_size(tauri::Size::Logical(tauri::LogicalSize::new(w, h)));
-    let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
     let _ = win.set_skip_taskbar(true);
     // 调用层压在全屏应用之上（基线 6）：CanJoinAllSpaces + FullScreenAuxiliary
     let _ = win.set_visible_on_all_workspaces(true);
     let _ = win.set_always_on_top(true);
 
+    // 先显示窗口，再设置尺寸/位置
+    // macOS 隐藏窗口上 set_size 可能不立即生效，先 show 确保窗口系统就绪
     #[cfg(target_os = "macos")]
     let _ = app.show();
     let _ = win.show();
+
+    let _ = win.set_size(tauri::Size::Logical(tauri::LogicalSize::new(w, h)));
+    let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
     let _ = win.set_focus();
 
     state.hidden_offscreen.store(false, Ordering::SeqCst);
     // show/focus 抖动期不给 blur-hide 机会
-    set_blur_suppress_window(&state, 150);
+    set_blur_suppress_window(&state, 300);
     let _ = app.emit("focus-search", ());
 }
 
@@ -656,15 +659,6 @@ async fn copy_paste_prompt(
 
     let mut session = state.session_paste_target.lock().unwrap().clone();
     let fallback = state.last_success_target.lock().unwrap().name.clone();
-    // 诊断日志：粘贴链入口的权限状态 + 记忆目标
-    #[cfg(target_os = "macos")]
-    eprintln!(
-        "[paste] enter: a11y_trusted={} session={:?}/{} fallback={:?}",
-        unsafe { AXIsProcessTrusted() },
-        session.name,
-        session.pid,
-        fallback
-    );
     let result = tauri::async_runtime::spawn_blocking(move || {
         // session 整体移入，链路内对目标的纠正（pid 死亡、名字纠正）随闭包返回
         let outcome = paste::paste_clipboard_to_frontmost(&mut session.name, &mut session.pid, &fallback);
@@ -674,7 +668,6 @@ async fn copy_paste_prompt(
     .map_err(|e| e.to_string())?;
 
     let (session, result) = result;
-    eprintln!("[paste] chain result: {result:?}");
     *state.session_paste_target.lock().unwrap() = session;
 
     match result {
@@ -707,13 +700,6 @@ async fn copy_paste_prompt(
             Ok(json!({ "copied": true, "pasted": outcome.pasted }))
         }
         Err(classified) => {
-            // 对齐 Electron：console.error("Paste after hide failed", type, message)
-            let kind = match &classified {
-                paste::PasteError::Accessibility(_) => "accessibility",
-                paste::PasteError::Automation(_) => "automation",
-                paste::PasteError::Unknown(_) => "unknown",
-            };
-            eprintln!("[prompt-box] Paste after hide failed: {kind} {}", classified.message());
             let accessibility = matches!(classified, paste::PasteError::Accessibility(_));
             let automation = matches!(classified, paste::PasteError::Automation(_));
             Ok(json!({
@@ -1407,16 +1393,21 @@ fn main() {
         })
         .on_window_event(|window, event| match event {
             WindowEvent::Focused(false) => {
-                // 失焦自动隐藏（基线 10），带抑制窗与锁定保护
-                let app = window.app_handle();
-                let state = app.state::<AppState>();
-                if state.hidden_offscreen.load(Ordering::SeqCst)
-                    || state.blur_hide_locked.load(Ordering::SeqCst)
-                    || blur_hide_suppressed(&state)
-                {
-                    return;
-                }
-                hide_main(app, true);
+                // 失焦自动隐藏（基线 10）：160ms 防抖，对齐 Electron scheduleHideOnBlur
+                let app = window.app_handle().clone();
+                let win_for_check = window.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(160)).await;
+                    let state = app.state::<AppState>();
+                    if state.hidden_offscreen.load(Ordering::SeqCst)
+                        || state.blur_hide_locked.load(Ordering::SeqCst)
+                        || blur_hide_suppressed(&state)
+                        || win_for_check.is_focused().unwrap_or(false)
+                    {
+                        return;
+                    }
+                    hide_main(&app, true);
+                });
             }
             WindowEvent::CloseRequested { api, .. } => {
                 // 点关闭 = 隐藏待命，不退出

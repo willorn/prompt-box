@@ -37,7 +37,9 @@ pub struct FrontmostInfo {
     pub pid: i64,
 }
 
+// —— 错误分类：Accessibility / Automation 变体保留，供未来 CGEvent 错误码映射 ——
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum PasteError {
     /// 粘贴键击被系统拒绝：辅助功能权限（对应 Electron accessibility 分类）
     Accessibility(String),
@@ -45,16 +47,6 @@ pub enum PasteError {
     Automation(String),
     /// 其他失败
     Unknown(String),
-}
-
-impl PasteError {
-    pub fn message(&self) -> String {
-        match self {
-            PasteError::Accessibility(m) | PasteError::Automation(m) | PasteError::Unknown(m) => {
-                m.clone()
-            }
-        }
-    }
 }
 
 // —— 带超时的子进程（对齐 runExecFile / runOsascript 的超时保护）——
@@ -307,25 +299,6 @@ fn send_paste_keystroke() -> Result<(), PasteError> {
     }
 }
 
-// —— 错误分类（classifyAppleScriptPasteError 全量移植）——
-pub fn classify_paste_error(message: &str) -> PasteError {
-    let lower = message.to_lowercase();
-    if message.contains("(-1743)")
-        || lower.contains("not authorized to send apple events to system events")
-    {
-        return PasteError::Automation(message.to_string());
-    }
-    if message.contains("(-1719)")
-        || lower.contains("assistive access")
-        || lower.contains("not allowed to send keystrokes")
-        || message.contains("不允许发送按键")
-        || message.contains("不允许辅助访问")
-    {
-        return PasteError::Accessibility(message.to_string());
-    }
-    PasteError::Unknown(message.to_string())
-}
-
 fn wait_natural_external_frontmost(max_ms: u64, step_ms: u64) -> FrontmostInfo {
     // hide 后轮询自然前台：比固定 sleep 更贴合真实让出时机。
     let budget = max_ms.max(40);
@@ -384,16 +357,7 @@ pub fn paste_clipboard_to_frontmost(
     }
 
     let front = resolve_external(session_name, session_pid, fallback_name)?;
-    eprintln!(
-        "[paste] resolved target: name={:?} pid={} (session={:?}/{})",
-        front.name, front.pid, session_name, session_pid
-    );
-
-    let keystroke = send_paste_keystroke();
-    if let Err(ref e) = keystroke {
-        eprintln!("[paste] keystroke FAILED: {e:?}");
-    }
-    keystroke?;
+    send_paste_keystroke()?;
     // 键击成功后复核：只有仍停在自己身上才判定失败；读不到前台名时信任键击前确认的外部应用。
     delay(40);
     let after = frontmost_fast();

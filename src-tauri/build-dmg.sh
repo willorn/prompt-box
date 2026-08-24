@@ -15,7 +15,7 @@ APP_BUNDLE="$BUNDLE_DIR/$APP_NAME.app"
 DMG_NAME="${APP_NAME}_${VERSION}_aarch64.dmg"
 
 echo "▸ tauri build (release, app only)..."
-npx tauri build --bundles app 2>&1
+cargo tauri build --bundles app 2>&1
 
 if [[ ! -d "$APP_BUNDLE" ]]; then
   echo "✗ app bundle not found: $APP_BUNDLE" >&2

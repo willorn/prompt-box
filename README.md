@@ -33,16 +33,16 @@
 
 ```bash
 # 日常迭代（build → deploy → sign → restart）
-cd tauri && ./redeploy.sh
+cd src-tauri && ./redeploy.sh
 
 # 仅 cargo test
-cd tauri && cargo test
+cd src-tauri && cargo test
 
 # JS helpers 测试
 node --test tests/prompt-helpers.test.mjs
 
 # 发版打包（DMG）
-cd tauri && ./build-dmg.sh
+cd src-tauri && ./build-dmg.sh
 ```
 
 技术栈：Tauri 2 (Rust) · WKWebView · 零 Node.js 依赖。

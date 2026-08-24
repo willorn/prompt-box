@@ -38,5 +38,5 @@ coverage/
 prompts.json
 
 # Rust / Tauri
-tauri/target/
-tauri/gen/schemas/
+src-tauri/target/
+src-tauri/gen/schemas/

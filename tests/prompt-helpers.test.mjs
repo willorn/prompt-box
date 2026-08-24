@@ -16,7 +16,7 @@ import {
   getDefaultSamplePrompts,
   promptMatchesSearch,
   tokenizeSearchTerm,
-} from "../tauri/frontend/lib/prompt-helpers.js";
+} from "../src/lib/prompt-helpers.js";
 
 // CSV with quotes
 const csv = `name,tag,content\n文章润色专家,writing,"请润色,并保留原意"\nTailwind 助手,coding,生成类名\n`;

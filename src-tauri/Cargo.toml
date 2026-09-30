@@ -30,6 +30,7 @@ tokio = { version = "1", features = ["time"] }
 # 阶段 4：WebDAV（对齐 Electron 的 webdav npm 包语义）
 reqwest_dav = "0.3"
 chrono = "0.4"
+tempfile = "3"
 # 权限：AXIsProcessTrustedWithOptions 需要 CFDictionary 构造 options
 core-foundation = "0.9"
 

@@ -46,6 +46,17 @@ function mergePromptLists(existing, incoming) {
   return { prompts: base, added, skipped };
 }
 
+function markdownFence(line) {
+  const trimmed = line.trimStart();
+  if (line.length - trimmed.length > 3) return null;
+  const char = trimmed[0];
+  if (char !== '~' && char !== String.fromCharCode(96)) return null;
+  let length = 0;
+  while (trimmed[length] === char) length += 1;
+  if (length < 3) return null;
+  return { char, length, info: trimmed.slice(length).trim() };
+}
+
 function parseMarkdownPrompts(raw) {
   const source = String(raw || "").replace(/^\uFEFF/, "").trim();
   if (!source) return [];
@@ -53,6 +64,10 @@ function parseMarkdownPrompts(raw) {
   const lines = source.split(/\r?\n/);
   const blocks = [];
   let current = null;
+  let fence = null;
+  const append = (line) => {
+    if (current) current.content = current.content ? current.content + String.fromCharCode(10) + line : line;
+  };
 
   const flush = () => {
     if (!current) return;
@@ -72,6 +87,21 @@ function parseMarkdownPrompts(raw) {
   };
 
   for (const line of lines) {
+    const marker = markdownFence(line);
+    if (fence) {
+      if (marker && marker.char === fence.char && marker.length >= fence.length && !marker.info) {
+        if (!fence.wrapper) append(line);
+        fence = null;
+      } else {
+        append(line);
+      }
+      continue;
+    }
+    if (marker) {
+      fence = { ...marker, wrapper: Boolean(current && !current.content.trim() && marker.info === 'promptbox-content') };
+      if (!fence.wrapper) append(line);
+      continue;
+    }
     const heading = line.match(/^#{1,3}\s+(.+)$/);
     if (heading) {
       flush();
@@ -416,7 +446,10 @@ function formatPromptAsMarkdown(prompt) {
   if (!item) return "";
   const lines = [`# ${item.name}`];
   if (item.tag) lines.push(`标签: ${item.tag}`);
-  lines.push("", item.content, "");
+  // 独立内容围栏避免正文标题、标签行与记录边界混淆。
+  const runs = item.content.match(/~+/g) || [];
+  const fence = '~'.repeat(runs.reduce((length, run) => Math.max(length, run.length + 1), 3));
+  lines.push("", fence + 'promptbox-content', item.content, fence, "");
   return lines.join("\n");
 }
 

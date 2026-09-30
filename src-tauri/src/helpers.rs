@@ -180,6 +180,16 @@ fn parse_tag_line(line: &str) -> Option<String> {
     Some(rest.trim_matches(is_js_whitespace).to_string())
 }
 
+fn markdown_fence(line: &str) -> Option<(char, usize, &str)> {
+    let trimmed = line.trim_start();
+    if line.len() - trimmed.len() > 3 { return None; }
+    let marker = trimmed.chars().next()?;
+    if marker != '~' && marker != char::from(96) { return None; }
+    let length = trimmed.chars().take_while(|c| *c == marker).count();
+    if length < 3 { return None; }
+    Some((marker, length, trimmed[length..].trim()))
+}
+
 pub fn parse_markdown_prompts(raw: &str) -> Vec<Prompt> {
     let source = raw
         .strip_prefix('\u{feff}')
@@ -203,6 +213,7 @@ pub fn parse_markdown_prompts(raw: &str) -> Vec<Prompt> {
 
     let mut blocks: Vec<Block> = Vec::new();
     let mut current: Option<Block> = None;
+    let mut fence: Option<(char, usize, bool)> = None;
 
     let flush = |blocks: &mut Vec<Block>, b: Block| {
         let name = b.name.trim().to_string();
@@ -213,6 +224,30 @@ pub fn parse_markdown_prompts(raw: &str) -> Vec<Prompt> {
     };
 
     for line in &lines {
+        let marker = markdown_fence(line);
+        if let Some((ch, length, wrapper)) = fence {
+            let closes = marker.is_some_and(|(c, n, info)| c == ch && n >= length && info.is_empty());
+            if closes { fence = None; }
+            if !closes || !wrapper {
+                if let Some(b) = current.as_mut() {
+                    if !b.content.is_empty() { b.content.push(char::from(10)); }
+                    b.content.push_str(line);
+                }
+            }
+            continue;
+        }
+        if let Some((ch, length, info)) = marker {
+            let wrapper = info == "promptbox-content"
+                && current.as_ref().is_some_and(|b| b.content.trim().is_empty());
+            fence = Some((ch, length, wrapper));
+            if !wrapper {
+                if let Some(b) = current.as_mut() {
+                    if !b.content.is_empty() { b.content.push(char::from(10)); }
+                    b.content.push_str(line);
+                }
+            }
+            continue;
+        }
         if let Some(title) = parse_markdown_heading(line) {
             if let Some(b) = current.take() {
                 flush(&mut blocks, b);
@@ -858,7 +893,16 @@ pub fn format_prompt_as_markdown(prompt: &Prompt) -> String {
         lines.push(format!("标签: {}", prompt.tag));
     }
     lines.push(String::new());
+    let mut longest = 0;
+    let mut run = 0;
+    for ch in prompt.content.chars() {
+        run = if ch == '~' { run + 1 } else { 0 };
+        longest = longest.max(run);
+    }
+    let fence = "~".repeat(3.max(longest + 1));
+    lines.push(format!("{fence}promptbox-content"));
     lines.push(prompt.content.clone());
+    lines.push(fence);
     lines.push(String::new());
     lines.join("\n")
 }
@@ -1006,6 +1050,13 @@ pub fn get_usage_summary(item: &Prompt) -> UsageSummary {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn markdown_body_roundtrip() {
+        let body = ["tag: body", "# Heading", "## Details", "~~~markdown", "# Code", "~~~", "~~~~promptbox-content", "Nested", "~~~~"].join(&char::from(10).to_string());
+        let items = vec![prompt("A", "coding", &body, 0, ""), prompt("B", "", "# Body", 0, "")];
+        assert_eq!(parse_markdown_prompts(&format_prompts_as_markdown(&items)), items);
+    }
 
     fn prompt(name: &str, tag: &str, content: &str, use_count: i64, last_used_at: &str) -> Prompt {
         Prompt {

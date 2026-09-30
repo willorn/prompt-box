@@ -105,11 +105,15 @@ fn hotkey_info_value(app: &AppHandle) -> Value {
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "Alt+E".to_string());
     let active = state.active_hotkey.lock().unwrap().clone();
+    hotkey_info(preferred, active)
+}
+
+fn hotkey_info(preferred: String, active: String) -> Value {
     let active = if active.is_empty() { preferred.clone() } else { active };
     json!({
         "preferred": preferred,
         "active": active,
-        "activeIsFallback": active != preferred,
+        "isFallback": active != preferred,
         "candidates": HOTKEY_CANDIDATES,
     })
 }
@@ -349,6 +353,10 @@ fn schedule_restore(app: AppHandle, previous: String, pasted: String) {
 
 // —— 显示 / 隐藏（showMainWindow / hideMainWindow 移植）——
 
+fn restored_content_size(width: f64, outer_height: f64, titlebar_height: f64) -> (f64, f64) {
+    (width.clamp(720.0, 4000.0), outer_height.clamp(520.0, 3000.0) - titlebar_height)
+}
+
 fn show_main(app: &AppHandle) {
     let Some(win) = main_window(app) else { return };
     let state = app.state::<AppState>();
@@ -377,13 +385,12 @@ fn show_main(app: &AppHandle) {
         let store = state.store.lock().unwrap();
         match store.get_window_bounds() {
             // 记忆的是整窗尺寸：换算回内容区
-            Some((x, y, w, h)) => (
-                Some((x, y)),
-                w.clamp(720.0, 4000.0) - titlebar_h,
-                h.clamp(520.0, 3000.0) - titlebar_h,
-            ),
+            Some((x, y, w, h)) => {
+                let (width, height) = restored_content_size(w, h, titlebar_h);
+                (Some((x, y)), width, height)
+            }
             // 首启无记忆：DEFAULT_WINDOW_BOUNDS（Electron 整词语义）
-            None => (None, 860.0 - titlebar_h, 600.0 - titlebar_h),
+            None => (None, 860.0, 600.0 - titlebar_h),
         }
     };
 
@@ -468,12 +475,14 @@ fn hide_main(app: &AppHandle, force: bool) -> bool {
             } else {
                 0.0
             };
-            state.store.lock().unwrap().set_window_bounds(
+            if let Err(err) = state.store.lock().unwrap().set_window_bounds(
                 pos.x as f64 / scale,
                 pos.y as f64 / scale,
                 size.width as f64 / scale,
                 size.height as f64 / scale + titlebar_h,
-            );
+            ) {
+                eprintln!("[prompt-box] save window bounds failed: {err}");
+            }
         }
     }
 
@@ -536,7 +545,7 @@ fn set_blur_hide_locked(state: State<'_, AppState>, locked: bool) -> bool {
 }
 
 #[tauri::command]
-fn get_prompts(state: State<'_, AppState>) -> Value {
+fn get_prompts(state: State<'_, AppState>) -> Result<Value, String> {
     state.store.lock().unwrap().get_prompts()
 }
 
@@ -545,7 +554,7 @@ fn set_prompts(state: State<'_, AppState>, prompts: Value) -> Result<Value, Stri
     if !prompts.is_array() {
         return Err("prompts must be an array".into());
     }
-    Ok(state.store.lock().unwrap().set_prompts(prompts))
+    state.store.lock().unwrap().set_prompts(prompts)
 }
 
 #[tauri::command]
@@ -554,7 +563,7 @@ fn get_hidden_tags(state: State<'_, AppState>) -> Value {
 }
 
 #[tauri::command]
-fn set_hidden_tags(state: State<'_, AppState>, tags: Value) -> Value {
+fn set_hidden_tags(state: State<'_, AppState>, tags: Value) -> Result<Value, String> {
     state.store.lock().unwrap().set_hidden_tags(tags)
 }
 
@@ -584,7 +593,7 @@ fn set_preferred_global_hotkey(app: AppHandle, state: State<'_, AppState>, accel
         .store
         .lock()
         .unwrap()
-        .set_pref("preferredGlobalHotkey", json!(accelerator));
+        .set_pref("preferredGlobalHotkey", json!(accelerator))?;
     setup_global_shortcut(&app);
     Ok(hotkey_info_value(&app))
 }
@@ -604,7 +613,7 @@ fn cycle_global_hotkey(app: AppHandle, state: State<'_, AppState>) -> Result<Val
         .store
         .lock()
         .unwrap()
-        .set_pref("preferredGlobalHotkey", json!(next));
+        .set_pref("preferredGlobalHotkey", json!(next))?;
     setup_global_shortcut(&app);
     Ok(hotkey_info_value(&app))
 }
@@ -617,7 +626,7 @@ fn pin_active_global_hotkey(app: AppHandle, state: State<'_, AppState>) -> Resul
             .store
             .lock()
             .unwrap()
-            .set_pref("preferredGlobalHotkey", json!(active));
+            .set_pref("preferredGlobalHotkey", json!(active))?;
     }
     setup_global_shortcut(&app);
     Ok(hotkey_info_value(&app))
@@ -690,11 +699,13 @@ async fn copy_paste_prompt(
                     name: name.clone(),
                     pid,
                 };
-                state
+                if let Err(err) = state
                     .store
                     .lock()
                     .unwrap()
-                    .set_pref("lastSuccessfulPasteTarget", json!(name));
+                    .set_pref("lastSuccessfulPasteTarget", json!(name)) {
+                    eprintln!("[prompt-box] save paste target failed: {err}");
+                }
                 schedule_restore(app.clone(), previous, text);
             }
             Ok(json!({ "copied": true, "pasted": outcome.pasted }))
@@ -886,12 +897,12 @@ async fn restore_latest_safety_snapshot(app: AppHandle) -> Result<Value, String>
     let mut store = state.store.lock().unwrap();
     let current = store.prompts_raw();
     if current.as_array().is_some_and(|a| !a.is_empty()) {
-        store.push_safety_snapshot(&current, true);
+        store.push_safety_snapshot(&current, true)?;
     }
     let restored =
         helpers::sanitize_prompt_list(&latest.get("prompts").cloned().unwrap_or(json!([])));
     let prompts_count = restored.len();
-    store.write_prompts(&restored);
+    store.write_prompts(&restored)?;
     Ok(json!({ "canceled": false, "promptsCount": prompts_count, "at": at }))
 }
 
@@ -1144,7 +1155,7 @@ fn set_webdav_config(state: State<'_, AppState>, config: Value) -> Result<bool, 
         return Err("invalid config".into());
     }
     let fields = webdav::config_fields_to_store(&config);
-    state.store.lock().unwrap().merge_webdav(fields);
+    state.store.lock().unwrap().merge_webdav(fields)?;
     Ok(true)
 }
 
@@ -1156,7 +1167,7 @@ fn get_webdav_settings(state: State<'_, AppState>) -> Value {
 #[tauri::command]
 fn set_webdav_settings(state: State<'_, AppState>, settings: Value) -> Result<bool, String> {
     let fields = webdav::settings_fields_to_store(&settings)?;
-    state.store.lock().unwrap().merge_webdav(fields);
+    state.store.lock().unwrap().merge_webdav(fields)?;
     Ok(true)
 }
 
@@ -1183,22 +1194,22 @@ async fn backup_webdav(state: State<'_, AppState>) -> Result<Value, String> {
         .store
         .lock()
         .unwrap()
-        .merge_webdav(json!({ "lastAutoBackupAt": paste::now_ms() as i64 }));
+        .merge_webdav(json!({ "lastAutoBackupAt": paste::now_ms() as i64 }))?;
     Ok(json!({ "remotePath": remote_path, "fileName": file_name }))
 }
 
 // applyRestoredPrompts：云端恢复覆盖前强制落安全快照，再 sanitize 写入
-async fn apply_restored_prompts(app: &AppHandle, raw_prompts: Value) -> usize {
+async fn apply_restored_prompts(app: &AppHandle, raw_prompts: Value) -> Result<usize, String> {
+    let restored = webdav::validate_backup_prompts(&raw_prompts)?;
     let state = app.state::<AppState>();
     let mut store = state.store.lock().unwrap();
     let current = store.prompts_raw();
     if current.as_array().is_some_and(|a| !a.is_empty()) {
-        store.push_safety_snapshot(&current, true);
+        store.push_safety_snapshot(&current, true)?;
     }
-    let restored = helpers::sanitize_prompt_list(&raw_prompts);
     let count = restored.len();
-    store.write_prompts(&restored);
-    count
+    store.write_prompts(&restored)?;
+    Ok(count)
 }
 
 #[tauri::command]
@@ -1208,7 +1219,7 @@ async fn restore_webdav_latest(app: AppHandle, state: State<'_, AppState>) -> Re
         webdav::ensure_config(&store.webdav())?
     };
     let (remote_path, raw) = webdav::restore_latest(&config).await?;
-    let prompts_count = apply_restored_prompts(&app, raw).await;
+    let prompts_count = apply_restored_prompts(&app, raw).await?;
     Ok(json!({ "remotePath": remote_path, "promptsCount": prompts_count }))
 }
 
@@ -1226,7 +1237,7 @@ async fn restore_webdav_path(
         return Err("remotePath required".into());
     }
     let (remote_path, raw) = webdav::restore_path(&config, &remote_path).await?;
-    let prompts_count = apply_restored_prompts(&app, raw).await;
+    let prompts_count = apply_restored_prompts(&app, raw).await?;
     Ok(json!({ "remotePath": remote_path, "promptsCount": prompts_count }))
 }
 
@@ -1270,14 +1281,46 @@ async fn auto_backup_tick(app: &AppHandle) {
     };
     match webdav::backup(&config, &prompts).await {
         Ok((_, file_name)) => {
-            state
+            if let Err(err) = state
                 .store
                 .lock()
                 .unwrap()
-                .merge_webdav(json!({ "lastAutoBackupAt": paste::now_ms() as i64 }));
+                .merge_webdav(json!({ "lastAutoBackupAt": paste::now_ms() as i64 })) {
+                eprintln!("[prompt-box] save backup timestamp failed: {err}");
+                return;
+            }
             let _ = app.emit("auto-backup", file_name);
         }
         Err(err) => eprintln!("[prompt-box] Auto backup failed: {err}"),
+    }
+}
+
+#[cfg(test)]
+mod integration_contract_tests {
+    use super::*;
+
+    #[test]
+    fn hotkey_fallback_matches_renderer_contract() {
+        let info = hotkey_info("Alt+E".into(), "Alt+Space".into());
+        assert_eq!(info["isFallback"], true);
+        assert_eq!(info["active"], "Alt+Space");
+        let pinned = hotkey_info("Alt+Space".into(), "Alt+Space".into());
+        assert_eq!(pinned["isFallback"], false);
+    }
+
+    #[test]
+    fn repeated_window_restoration_preserves_width() {
+        for titlebar in [0.0, 28.0, 38.0] {
+            let mut width = 1000.0;
+            let mut outer_height = 700.0;
+            for _ in 0..100 {
+                let (w, h) = restored_content_size(width, outer_height, titlebar);
+                assert_eq!(w, 1000.0);
+                assert_eq!(h + titlebar, 700.0);
+                width = w;
+                outer_height = h + titlebar;
+            }
+        }
     }
 }
 
@@ -1303,7 +1346,7 @@ fn main() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-            let store = store::Store::load(app.handle());
+            let store = store::Store::load(app.handle())?;
             app.manage(AppState {
                 suppress_blur_hide_until: AtomicU64::new(0),
                 blur_hide_locked: AtomicBool::new(false),

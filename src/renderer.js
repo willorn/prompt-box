@@ -1336,7 +1336,8 @@ document.addEventListener("DOMContentLoaded", () => {
     item.isPinned = !prev;
     const ok = await saveData();
     if (!ok) {
-      item.isPinned = prev;
+      // saveData 会规范化并重建列表对象，必须回滚列表中的实际对象。
+      if (allPrompts[index]) allPrompts[index].isPinned = prev;
       renderAll();
       showToast("置顶状态未能保存");
       return false;
@@ -2081,12 +2082,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (useInFlight) return null;
     const item = allPrompts[index];
     if (!item) return null;
-    void options;
+    const { copyOnly = false } = options;
 
     setUseInFlight(true);
     if (previewUse) previewUse.disabled = true;
     try {
-      const result = await copyPromptForUse(item.content);
+      const result = copyOnly
+        ? { copied: await copyText(item.content), pasted: false }
+        : await copyPromptForUse(item.content);
       if (!result?.copied) {
         showToast("复制失败，请手动复制");
         return { copied: false, pasted: false, copyOnly: true };
@@ -2342,7 +2345,7 @@ document.addEventListener("DOMContentLoaded", () => {
         dismissSystemMenuForCallPath();
         selectCard(item.originalIndex);
         card.focus({ preventScroll: true });
-        await usePromptAtIndex(item.originalIndex, card);
+        await usePromptAtIndex(item.originalIndex, card, { copyOnly: e.shiftKey });
       });
 
       // Arrow navigation is handled once at document level to avoid double-step jumps.
@@ -3370,7 +3373,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = document.querySelector(
         `.card[data-original-index="${selectedIndex}"]`,
       );
-      await usePromptAtIndex(selectedIndex, card);
+      await usePromptAtIndex(selectedIndex, card, { copyOnly: e.shiftKey });
     };
   }
 

@@ -266,15 +266,29 @@ pub async fn backup(config: &Value, prompts: &[helpers::Prompt]) -> Result<(Stri
     Ok((remote_path, file_name))
 }
 
-// 下载并解析备份 payload：Array.isArray(parsed?.prompts) ? parsed.prompts : parsed
+// 恢复必须拒绝无效记录，不能把格式错误当成空备份。
+pub fn validate_backup_prompts(payload: &Value) -> Result<Vec<helpers::Prompt>, String> {
+    let list = payload.as_array().ok_or("备份格式错误：prompts 必须是数组")?;
+    list.iter().map(|item| {
+        if !item.get("name").is_some_and(Value::is_string)
+            || !item.get("content").is_some_and(Value::is_string) {
+            return Err("备份包含无效提示词：名称和内容必须是字符串".to_string());
+        }
+        helpers::normalize_prompt(item).ok_or_else(|| "备份包含空名称或空内容".to_string())
+    }).collect()
+}
+
+// 下载并解析备份 payload，允许裸数组或带 prompts 的对象。
 async fn fetch_prompts_payload(client: &Client, remote_path: &str) -> Result<Value, String> {
     let resp = client.get(remote_path).await.map_err(|e| e.to_string())?;
     let raw = resp.text().await.map_err(|e| e.to_string())?;
     let parsed: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
-    Ok(match parsed.get("prompts") {
-        Some(p) if p.is_array() => p.clone(),
+    let payload = match parsed.get("prompts") {
+        Some(p) => p.clone(),
         _ => parsed,
-    })
+    };
+    validate_backup_prompts(&payload)?;
+    Ok(payload)
 }
 
 pub async fn restore_latest(config: &Value) -> Result<(String, Value), String> {
@@ -330,6 +344,15 @@ pub async fn list_backups(config: &Value) -> Result<Vec<Value>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn backup_validation_rejects_invalid_shapes_and_records() {
+        for payload in [json!({}), json!(null), json!({"prompts": null}), json!([{}]), json!([{"name": "A", "content": 42}]), json!([{"name": "A", "content": " "}]), json!([{"name": "A", "content": "valid"}, {}])] {
+            assert!(validate_backup_prompts(&payload).is_err(), "{payload}");
+        }
+        assert!(validate_backup_prompts(&json!([])).unwrap().is_empty());
+        assert_eq!(validate_backup_prompts(&json!([{"name": "A", "content": "valid"}])).unwrap().len(), 1);
+    }
 
     #[test]
     fn normalize_dir_defaults_and_slashes() {

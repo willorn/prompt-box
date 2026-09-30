@@ -4,12 +4,14 @@
 use crate::helpers;
 use serde_json::{json, Value};
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 pub struct Store {
     path: PathBuf,
     data: Value,
+    persisted: Value,
 }
 
 fn default_sample_prompts() -> Value {
@@ -31,29 +33,49 @@ fn prompts_identity_signature(list: &[helpers::Prompt]) -> String {
 }
 
 impl Store {
-    pub fn load(app: &AppHandle) -> Self {
+    pub fn load(app: &AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
         let dir = app
             .path()
             .app_config_dir()
-            .unwrap_or_else(|_| PathBuf::from("."));
-        let _ = fs::create_dir_all(&dir);
+            ?;
+        fs::create_dir_all(&dir)?;
         let path = dir.join("store.json");
-        let data = fs::read_to_string(&path)
-            .ok()
-            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-            .filter(|v| v.is_object())
-            .unwrap_or_else(|| json!({}));
-        Self { path, data }
+        Self::load_path(path)
     }
 
-    fn save(&self) {
-        if let Ok(raw) = serde_json::to_string_pretty(&self.data) {
-            let _ = fs::write(&self.path, raw);
+    fn load_path(path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+        let data = match fs::read_to_string(&path) {
+            Ok(raw) => {
+                let value: Value = serde_json::from_str(&raw)?;
+                if !value.is_object() {
+                    return Err("store.json must contain an object; original file preserved".into());
+                }
+                value
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => json!({}),
+            Err(err) => return Err(err.into()),
+        };
+        Ok(Self { path, persisted: data.clone(), data })
+    }
+
+    fn save(&mut self) -> Result<(), String> {
+        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+            let raw = serde_json::to_vec_pretty(&self.data)?;
+            let parent = self.path.parent().ok_or("invalid store path")?;
+            let mut temp = tempfile::NamedTempFile::new_in(parent)?;
+            temp.write_all(&raw)?;
+            temp.as_file().sync_all()?;
+            temp.persist(&self.path)?;
+            Ok(())
+        })();
+        match result {
+            Ok(()) => { self.persisted = self.data.clone(); Ok(()) }
+            Err(err) => { self.data = self.persisted.clone(); Err(err.to_string()) }
         }
     }
 
     // —— prompts：首次启动回种示例；空数组视为用户已清空，不再回种 ——
-    pub fn get_prompts(&mut self) -> Value {
+    pub fn get_prompts(&mut self) -> Result<Value, String> {
         let needs_seed = match self.data.get("prompts") {
             None => true,
             Some(v) if !v.is_array() => true,
@@ -62,13 +84,13 @@ impl Store {
         if needs_seed {
             let seeded = default_sample_prompts();
             self.data["prompts"] = seeded.clone();
-            self.save();
-            return seeded;
+            self.save()?;
+            return Ok(seeded);
         }
-        prompts_to_value(&helpers::sanitize_prompt_list(&self.data["prompts"]))
+        Ok(prompts_to_value(&helpers::sanitize_prompt_list(&self.data["prompts"])))
     }
 
-    pub fn set_prompts(&mut self, prompts: Value) -> Value {
+    pub fn set_prompts(&mut self, prompts: Value) -> Result<Value, String> {
         let sanitized = helpers::sanitize_prompt_list(&prompts);
         // 内容集合变化才快照；纯 useCount/lastUsedAt 更新不占用安全快照（对齐 Electron set-prompts）
         let existing = self.data.get("prompts").cloned().unwrap_or(Value::Null);
@@ -77,17 +99,17 @@ impl Store {
             if !prev.is_empty()
                 && prompts_identity_signature(&prev) != prompts_identity_signature(&sanitized)
             {
-                self.push_safety_snapshot(&existing, false);
+                self.push_safety_snapshot(&existing, false)?;
             }
         }
         self.write_prompts(&sanitized)
     }
 
-    pub fn write_prompts(&mut self, list: &[helpers::Prompt]) -> Value {
+    pub fn write_prompts(&mut self, list: &[helpers::Prompt]) -> Result<Value, String> {
         let v = prompts_to_value(list);
         self.data["prompts"] = v.clone();
-        self.save();
-        v
+        self.save()?;
+        Ok(v)
     }
 
     pub fn prompts_raw(&self) -> Value {
@@ -106,10 +128,10 @@ impl Store {
         }
     }
 
-    pub fn push_safety_snapshot(&mut self, prompts: &Value, force: bool) -> bool {
+    pub fn push_safety_snapshot(&mut self, prompts: &Value, force: bool) -> Result<bool, String> {
         let list = helpers::sanitize_prompt_list(prompts);
         if list.is_empty() && !force {
-            return false;
+            return Ok(false);
         }
         let fingerprint = prompts_identity_signature(&list);
         let mut snaps = self.get_safety_snapshots();
@@ -121,7 +143,7 @@ impl Store {
                 .and_then(|v| v.as_str())
                 .is_some_and(|s| s == fingerprint)
         {
-            return false;
+            return Ok(false);
         }
         snaps.insert(
             0,
@@ -134,8 +156,8 @@ impl Store {
         );
         snaps.truncate(MAX_SAFETY_SNAPSHOTS);
         self.data["safetySnapshots"] = Value::Array(snaps);
-        self.save();
-        true
+        self.save()?;
+        Ok(true)
     }
 
     pub fn list_safety_snapshots(&self) -> Value {
@@ -167,11 +189,11 @@ impl Store {
         v
     }
 
-    pub fn set_hidden_tags(&mut self, tags: Value) -> Value {
+    pub fn set_hidden_tags(&mut self, tags: Value) -> Result<Value, String> {
         let list = if tags.is_array() { tags } else { json!([]) };
         self.data["hiddenTags"] = list.clone();
-        self.save();
-        list
+        self.save()?;
+        Ok(list)
     }
 
     // —— 偏好（快捷键等）——
@@ -179,12 +201,12 @@ impl Store {
         self.data.get("prefs").and_then(|p| p.get(key))
     }
 
-    pub fn set_pref(&mut self, key: &str, value: Value) {
+    pub fn set_pref(&mut self, key: &str, value: Value) -> Result<(), String> {
         if !self.data.get("prefs").map(|p| p.is_object()).unwrap_or(false) {
             self.data["prefs"] = json!({});
         }
         self.data["prefs"][key] = value;
-        self.save();
+        self.save()
     }
 
     // —— WebDAV（Electron 独立 webdavStore 的等价：单对象 merge 写，字段含 config/settings/lastAutoBackupAt）——
@@ -195,7 +217,7 @@ impl Store {
         }
     }
 
-    pub fn merge_webdav(&mut self, fields: Value) {
+    pub fn merge_webdav(&mut self, fields: Value) -> Result<(), String> {
         if !self.data.get("webdav").map(|v| v.is_object()).unwrap_or(false) {
             self.data["webdav"] = json!({});
         }
@@ -203,8 +225,9 @@ impl Store {
             for (key, value) in obj {
                 self.data["webdav"][key] = value.clone();
             }
-            self.save();
+            self.save()?;
         }
+        Ok(())
     }
 
     // —— 窗口几何（逻辑坐标）——
@@ -218,9 +241,9 @@ impl Store {
         ))
     }
 
-    pub fn set_window_bounds(&mut self, x: f64, y: f64, width: f64, height: f64) {
+    pub fn set_window_bounds(&mut self, x: f64, y: f64, width: f64, height: f64) -> Result<(), String> {
         self.data["windowBounds"] = json!({ "x": x, "y": y, "width": width, "height": height });
-        self.save();
+        self.save()
     }
 }
 
@@ -228,43 +251,79 @@ impl Store {
 mod tests {
     use super::*;
 
-    fn test_store() -> Store {
-        Store {
-            path: std::env::temp_dir().join("prompt-box-store-test.json"),
-            data: json!({}),
-        }
+    fn test_store() -> (tempfile::TempDir, Store) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::load_path(dir.path().join("store.json")).unwrap();
+        (dir, store)
     }
 
     #[test]
     fn safety_snapshot_dedupe_and_cap() {
-        let mut s = test_store();
+        let (_dir, mut s) = test_store();
         let p1 = json!([{ "name": "A", "content": "1" }]);
-        assert!(s.push_safety_snapshot(&p1, false));
-        assert!(!s.push_safety_snapshot(&p1, false)); // 同指纹跳过
-        assert!(s.push_safety_snapshot(&json!([{ "name": "B", "content": "2" }]), false));
-        assert!(s.push_safety_snapshot(&p1, true)); // force 一定落
+        assert!(s.push_safety_snapshot(&p1, false).unwrap());
+        assert!(!s.push_safety_snapshot(&p1, false).unwrap()); // 同指纹跳过
+        assert!(s.push_safety_snapshot(&json!([{ "name": "B", "content": "2" }]), false).unwrap());
+        assert!(s.push_safety_snapshot(&p1, true).unwrap()); // force 一定落
         assert_eq!(s.get_safety_snapshots().len(), 3);
 
         for i in 0..5 {
             // 指纹相同但 force：验证 5 份上限截断
-            s.push_safety_snapshot(&json!([{ "name": "X", "content": "x", "note": i }]), true);
+            s.push_safety_snapshot(&json!([{ "name": "X", "content": "x", "note": i }]), true).unwrap();
         }
         assert_eq!(s.get_safety_snapshots().len(), 5);
     }
 
     #[test]
     fn set_prompts_snapshots_on_content_change_only() {
-        let mut s = test_store();
-        s.set_prompts(json!([{ "name": "A", "content": "1", "useCount": 1 }]));
+        let (_dir, mut s) = test_store();
+        s.set_prompts(json!([{ "name": "A", "content": "1", "useCount": 1 }])).unwrap();
         assert_eq!(s.get_safety_snapshots().len(), 0); // 原本为空，不快照
 
         // 纯 useCount 变化：不快照（对齐 Electron prevSig !== nextSig 才存）
-        s.set_prompts(json!([{ "name": "A", "content": "1", "useCount": 9 }]));
+        s.set_prompts(json!([{ "name": "A", "content": "1", "useCount": 9 }])).unwrap();
         assert_eq!(s.get_safety_snapshots().len(), 0);
 
         // 内容集合变化：快照旧数据
-        s.set_prompts(json!([{ "name": "A", "content": "changed" }]));
+        s.set_prompts(json!([{ "name": "A", "content": "changed" }])).unwrap();
         assert_eq!(s.get_safety_snapshots().len(), 1);
         assert_eq!(s.get_safety_snapshots()[0]["count"], 1);
+    }
+
+    #[test]
+    fn failed_writes_restore_memory_and_preserve_previous_file() {
+        let (dir, mut s) = test_store();
+        s.set_prompts(json!([{"name": "A", "content": "old"}])).unwrap();
+        let original_path = s.path.clone();
+        let original = fs::read(&original_path).unwrap();
+        let before = s.data.clone();
+        // 以目录代替目标文件，确定性触发原子替换失败（不依赖运行用户权限）。
+        s.path = dir.path().join("blocked");
+        fs::create_dir(&s.path).unwrap();
+        assert!(s.set_prompts(json!([{"name": "B", "content": "new"}])).is_err());
+        assert_eq!(s.data, before);
+        assert!(s.set_hidden_tags(json!(["hidden"])).is_err());
+        assert!(s.set_pref("preferredGlobalHotkey", json!("Alt+Space")).is_err());
+        assert!(s.merge_webdav(json!({"url": "https://example.invalid"})).is_err());
+        assert!(s.set_window_bounds(1.0, 2.0, 900.0, 700.0).is_err());
+        assert_eq!(s.data, before);
+        assert_eq!(fs::read(original_path).unwrap(), original);
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn corrupt_store_is_preserved_and_missing_store_seeds() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("store.json");
+        for raw in ["{broken", "[]", "null"] {
+            fs::write(&path, raw).unwrap();
+            assert!(Store::load_path(path.clone()).is_err());
+            assert_eq!(fs::read_to_string(&path).unwrap(), raw);
+        }
+        let missing = dir.path().join("new.json");
+        let mut s = Store::load_path(missing.clone()).unwrap();
+        assert!(!s.get_prompts().unwrap().as_array().unwrap().is_empty());
+        s.set_prompts(json!([])).unwrap();
+        assert_eq!(Store::load_path(missing).unwrap().get_prompts().unwrap(), json!([]));
     }
 }

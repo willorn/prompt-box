@@ -281,8 +281,8 @@ fn send_paste_keystroke() -> Result<(), PasteError> {
             let down = CGEventCreateKeyboardEvent(std::ptr::null(), K_V, true);
             let up = CGEventCreateKeyboardEvent(std::ptr::null(), K_V, false);
             if down.is_null() || up.is_null() {
-                if !down.is_null() { /* leak — rare, ignore */ }
-                if !up.is_null() { /* leak — rare, ignore */ }
+                if !down.is_null() { core_foundation::base::CFRelease(down.cast()); }
+                if !up.is_null() { core_foundation::base::CFRelease(up.cast()); }
                 return Err(PasteError::Unknown("CGEventCreateKeyboardEvent returned null".into()));
             }
             CGEventSetFlags(down, K_CMD);
@@ -290,6 +290,8 @@ fn send_paste_keystroke() -> Result<(), PasteError> {
             CGEventPost(TAP_SESSION, down);
             thread::sleep(Duration::from_millis(5));
             CGEventPost(TAP_SESSION, up);
+            core_foundation::base::CFRelease(down.cast());
+            core_foundation::base::CFRelease(up.cast());
         }
         Ok(())
     }

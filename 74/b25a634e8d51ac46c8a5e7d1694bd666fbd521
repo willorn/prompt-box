@@ -1,0 +1,14 @@
+src-tauri/src/paste.rs
+  h_8195c5342f3ab5 86,90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "74b25a634e8d51ac46c8a5e7d1694bd666fbd521",
+  "prompts": {},
+  "humans": {
+    "h_8195c5342f3ab5": {
+      "author": "Tianyi <willorn@qq.com>"
+    }
+  }
+}

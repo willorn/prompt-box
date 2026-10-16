@@ -40,3 +40,6 @@ prompts.json
 # Rust / Tauri
 src-tauri/target/
 src-tauri/gen/schemas/
+
+# Agent workspace（本地项目记忆与排查笔记，含本机环境信息，不入仓库）
+.workbuddy/

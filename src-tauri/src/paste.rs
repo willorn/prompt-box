@@ -83,10 +83,11 @@ pub fn log(msg: impl AsRef<str>) {
     let Some(path) = log_file_path() else { return };
     static INIT: std::sync::Once = std::sync::Once::new();
     INIT.call_once(|| {
+        // 表头记的是**首次写日志**的时间（不是进程启动时间——本 app 在首次唤起前不写日志）
         let _ = std::fs::write(
             &path,
             format!(
-                "=== PromptBox 本次运行 pid={} 启动于 {} ===\n",
+                "=== PromptBox pid={} 首次记录于 {} ===\n",
                 std::process::id(),
                 chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
             ),

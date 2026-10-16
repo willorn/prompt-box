@@ -3258,7 +3258,7 @@ document.addEventListener("DOMContentLoaded", () => {
     menuAbout.onclick = async () => {
       let info = {
         name: "PromptBox",
-        version: "0.3.0",
+        version: "0.3.1",
         platform: "unknown",
         isPackaged: false,
       };

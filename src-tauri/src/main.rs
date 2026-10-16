@@ -354,7 +354,7 @@ fn schedule_restore(app: AppHandle, previous: String, pasted: String) {
 // —— 显示 / 隐藏（showMainWindow / hideMainWindow 移植）——
 
 fn restored_content_size(width: f64, outer_height: f64, titlebar_height: f64) -> (f64, f64) {
-    (width.clamp(720.0, 4000.0), outer_height.clamp(520.0, 3000.0) - titlebar_height)
+    (width.clamp(800.0, 4000.0), outer_height.clamp(620.0, 3000.0) - titlebar_height)
 }
 
 fn show_main(app: &AppHandle) {
@@ -366,6 +366,12 @@ fn show_main(app: &AppHandle) {
 
     // 先记前台（仅快路径），避免记到自己（基线 45：lsappinfo 合并读取）
     let front = paste::frontmost_fast();
+    paste::log(format!(
+        "show_main 记录粘贴目标 = {:?}/{}（是否自己={}）",
+        front.name,
+        front.pid,
+        paste::is_self_target(&front.name, front.pid)
+    ));
     *state.session_paste_target.lock().unwrap() = PasteTarget {
         name: front.name.clone(),
         pid: front.pid,
@@ -390,7 +396,7 @@ fn show_main(app: &AppHandle) {
                 (Some((x, y)), width, height)
             }
             // 首启无记忆：DEFAULT_WINDOW_BOUNDS（Electron 整词语义）
-            None => (None, 860.0, 600.0 - titlebar_h),
+            None => (None, 1000.0, 700.0 - titlebar_h),
         }
     };
 
@@ -492,7 +498,13 @@ fn hide_main(app: &AppHandle, force: bool) -> bool {
 
     // macOS：app.hide() 让焦点自然回到前一应用——粘贴链“自然前台”的前提（基线 30）
     #[cfg(target_os = "macos")]
-    let _ = app.hide();
+    {
+        paste::log(format!(
+            "hide_main 隐藏前可见={} → 调用 app.hide()",
+            win.is_visible().unwrap_or(false)
+        ));
+        let _ = app.hide();
+    }
 
     // offscreen 待命：保持 webview 存活，下次唤起不重载
     let off_x = app
@@ -571,7 +583,7 @@ fn set_hidden_tags(state: State<'_, AppState>, tags: Value) -> Result<Value, Str
 fn get_app_info() -> Value {
     json!({
         "name": "PromptBox",
-        "version": "0.3.0-tauri-poc",
+        "version": "0.3.1-tauri-poc",
         "platform": std::env::consts::OS,
         "isPackaged": !cfg!(debug_assertions),
     })
@@ -668,6 +680,13 @@ async fn copy_paste_prompt(
 
     let mut session = state.session_paste_target.lock().unwrap().clone();
     let fallback = state.last_success_target.lock().unwrap().name.clone();
+    paste::log(format!(
+        "copy_paste_prompt：text_len={} 剪贴板已写入 session=({:?}, {}) fallback={:?}",
+        text.chars().count(),
+        session.name,
+        session.pid,
+        fallback
+    ));
     let result = tauri::async_runtime::spawn_blocking(move || {
         // session 整体移入，链路内对目标的纠正（pid 死亡、名字纠正）随闭包返回
         let outcome = paste::paste_clipboard_to_frontmost(&mut session.name, &mut session.pid, &fallback);
@@ -691,7 +710,7 @@ async fn copy_paste_prompt(
                 };
                 if pid > 0 {
                     let pname = paste::process_name_by_pid(pid);
-                    if !pname.is_empty() && !paste::is_self_app_name(&pname) {
+                    if !pname.is_empty() && !paste::is_self_target(&pname, pid) {
                         name = pname;
                     }
                 }
@@ -708,11 +727,22 @@ async fn copy_paste_prompt(
                 }
                 schedule_restore(app.clone(), previous, text);
             }
+            paste::log(format!(
+                "copy_paste_prompt 结果：pasted={} 目标={:?}/{}",
+                outcome.pasted, outcome.front_name, outcome.pid
+            ));
             Ok(json!({ "copied": true, "pasted": outcome.pasted }))
         }
         Err(classified) => {
             let accessibility = matches!(classified, paste::PasteError::Accessibility(_));
             let automation = matches!(classified, paste::PasteError::Automation(_));
+            // 记录失败原因到日志，便于定位粘贴链问题（同时消除 dead_code 字段警告）
+            let detail = match &classified {
+                paste::PasteError::Accessibility(d) => d.clone(),
+                paste::PasteError::Automation(d) => d.clone(),
+                paste::PasteError::Unknown(d) => d.clone(),
+            };
+            eprintln!("[paste] 失败：{detail}");
             Ok(json!({
                 "copied": true,
                 "pasted": false,
@@ -1368,9 +1398,9 @@ fn main() {
                 tauri::WebviewUrl::App("index.html".into()),
             )
             .title("PromptBox")
-            // Electron 的 860×600/720×520 为整窗尺寸（含标题栏），Tauri 按内容区近似减 28
-            .inner_size(860.0, 572.0)
-            .min_inner_size(720.0, 492.0)
+            // 1000×700 / 800×600 为整窗尺寸（含标题栏），Tauri 按内容区近似减 28
+            .inner_size(1000.0, 672.0)
+            .min_inner_size(800.0, 572.0)
             .visible(false)
             .skip_taskbar(true)
             .initialization_script(include_str!("bridge.js"))

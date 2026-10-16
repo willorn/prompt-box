@@ -236,8 +236,8 @@ impl Store {
         Some((
             b["x"].as_f64()?,
             b["y"].as_f64()?,
-            b["width"].as_f64().unwrap_or(860.0),
-            b["height"].as_f64().unwrap_or(600.0),
+            b["width"].as_f64().unwrap_or(1000.0),
+            b["height"].as_f64().unwrap_or(700.0),
         ))
     }
 

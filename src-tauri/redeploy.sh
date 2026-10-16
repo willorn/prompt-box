@@ -7,7 +7,8 @@ set -euo pipefail
 APP_BUNDLE="/Applications/PromptBox.app"
 BINARY_NAME="prompt-box"
 CERT_IDENTITY="promptbox-dev"
-LOG_FILE="/tmp/promptbox.err"
+# 粘贴链诊断日志由 app 自身落盘（src/paste.rs::log），每次进程启动截断重写。
+LOG_FILE="$HOME/Library/Application Support/com.promptmaster.desktop.tauri/paste.log"
 
 MODE="release"
 CARGO_FLAG="--release"
@@ -38,7 +39,8 @@ echo "▸ signing with $CERT_IDENTITY..."
 codesign --force --sign "$CERT_IDENTITY" "$APP_BUNDLE" 2>&1
 
 echo "▸ relaunching..."
-: > "$LOG_FILE"
-open --stderr "$LOG_FILE" "$APP_BUNDLE"
+# ⚠️ 不要用 `open --stderr`：GUI 应用经 LaunchServices 拉起时该重定向实测不生效
+# （文件恒为 0 字节），日志会直接丢掉。app 自己写 LOG_FILE。
+open "$APP_BUNDLE"
 
 echo "✓ redeploy done (log: $LOG_FILE)"

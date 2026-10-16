@@ -1,6 +1,6 @@
 [package]
 name = "prompt-box-tauri"
-version = "0.3.0"
+version = "0.3.1"
 description = "PromptBox - 桌面提示词快速调用工具（Tauri PoC）"
 authors = ["PromptBox"]
 edition = "2021"

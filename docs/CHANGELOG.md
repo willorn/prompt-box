@@ -5,16 +5,22 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [0.3.1] - 2026-09-02
 
 ### 计划中
 - Windows 和 Linux 版本支持
 - 多语言支持（中文、英文）
 
 ### 修复与增强
+- 修复部分 Electron 应用（如 WorkBuddy）完全无法自动粘贴：自身识别把通用进程名 `Electron` 误判成 PromptBox 自己，前台目标被过滤后 **Cmd+V 从未发出**；自身识别主口径改为 pid，不再用泛化进程名
+- 修复 `lsappinfo` 显示名解析：真实输出键名自带引号（`"LSDisplayName"="Google Chrome"`），旧实现只认 `KEY="` → 恒返回空串，只能靠 `ps` basename 兜底（正是上面误判的源头）；现兼容 `"KEY"=V` / `KEY=V` / `KEY = V` / 值不带引号
+- 修复 `process_name_by_pid` 的 System Events 兜底：结果被 `let _` 丢弃、无条件返回空串，兜底等于不生效
+- 粘贴链逐步骤诊断日志落盘至 `~/Library/Application Support/com.promptmaster.desktop.tauri/paste.log`（每次运行截断重写）；不再依赖 `open --stderr`（实测对 GUI 应用无效）
+- 调用层窗口默认尺寸 860×600 → 1000×700（最小 800×600），预览面板与列表不再因窗口过小而溢出截断
 - 辅助功能权限检测按进程身份+冷却节流：重装/路径变化或冷却过后可再触发系统授权提示，不再「整会话只弹一次」
 - 粘贴时报辅助功能错误时回写授权状态，避免 TCC 勾选残留导致后续不再引导
 - 每次唤起复检辅助功能；权限说明补充重装后需关闭旧勾选再重新允许的步骤
+- 粘贴失败时显式区分权限缺失：发按键前检查 AXIsProcessTrusted、前台解析失败时探测 System Events，不再静默失败误导为「已拷贝到剪贴板」
 
 ## [0.3.0] - 2026-07-14
 

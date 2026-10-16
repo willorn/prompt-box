@@ -1,0 +1,14 @@
+.gitignore
+  h_8195c5342f3ab5 43-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9934a78af0773f928c28bbb2b462ff342e6b522",
+  "prompts": {},
+  "humans": {
+    "h_8195c5342f3ab5": {
+      "author": "Tianyi <willorn@qq.com>"
+    }
+  }
+}
